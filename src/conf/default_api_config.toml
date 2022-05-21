@@ -1,0 +1,8 @@
+[general]
+debug = true
+log_level = "debug"
+encryption_key = "default"
+
+[server]
+url = "127.0.0.1:8080"
+storage_path = "/tmp/gofer.db"

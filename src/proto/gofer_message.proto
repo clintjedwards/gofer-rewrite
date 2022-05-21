@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/clintjedwards/gofer/proto";
+
+// Documentation for these models can be found in the "models" package as these
+// are just protobuf representations of those models.
+//
+// Why represent what amounts to the same model twice in protobuf AND a struct
+// you ask?
+//
+//   Essentially, because the separation of the transport layer and the
+//   application layer is a good thing. There are probably many reasons, but
+//   the most straightforward is that we might want to represent something in
+//   the database or within the application that might not be easily
+//   representable in protobuf, a structure mainly made for transport.
+//
+//   There might also be things that we don't want to expose outside and so
+//   the separation gives us a chance to not mess that up by simply forgetting a
+//   json:"-".
+
+message Namespace {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  uint64 created = 4;
+  uint64 deleted = 5;
+}

@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/clintjedwards/gofer/proto";
+
+import "gofer_message.proto";
+
+////////////// System Transport Models //////////////
+
+message GetSystemInfoRequest {}
+message GetSystemInfoResponse {
+  string commit = 1;
+  bool debug_enabled = 2;
+  string semver = 3;
+}
+
+////////////// Namespace Transport Models //////////////
+
+message GetNamespaceRequest {
+  string id = 1; // Unique identifier
+}
+message GetNamespaceResponse { Namespace namespace = 1; }
+
+message ListNamespacesRequest {
+  // offset is a pagination parameter that defines where to start when counting
+  // the list of objects to return.
+  int64 offset = 1;
+
+  // limit is a pagination parameter that defines how many objects to return
+  // per result.
+  int64 limit = 2;
+}
+
+message ListNamespacesResponse {
+  repeated Namespace namespaces = 1;
+
+  // offset is a pagination parameter that defines where to start when counting
+  // the list of objects to return.
+  int64 offset = 2;
+}
+
+message CreateNamespaceRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+message CreateNamespaceResponse { Namespace namespace = 1; }
+
+message UpdateNamespaceRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+message UpdateNamespaceResponse { Namespace namespace = 1; }
+
+message DeleteNamespaceRequest {
+  string id = 1; // Unique identifier
+}
+message DeleteNamespaceResponse {}
