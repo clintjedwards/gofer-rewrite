@@ -25,5 +25,5 @@ message Namespace {
   string name = 2;
   string description = 3;
   uint64 created = 4;
-  uint64 deleted = 5;
+  uint64 modified = 5;
 }

@@ -12,6 +12,9 @@ config = "0.13.0"
 prost = "0.10.0"
 rust-embed = "6.3.0"                                                      # We embed the configuration files and frontend
 mime_guess = "2.0.4"
+futures = "0.3.21"
+tower = "0.4.12"
+hyper = "0.14.18"
 serde = "1.0.137"
 slog = "2.7.0"
 slog-scope = "4.4.0"
@@ -19,7 +22,7 @@ sloggers = "2.1.1"
 sqlx = { version = "0.5", features = ["runtime-tokio-rustls", "sqlite"] }
 tokio = { version = "1.0", features = ["full"] }
 tonic = "0.7.1"
-
+thiserror = "1.0.31"
 
 [build-dependencies]
 tonic-build = "0.7.0"

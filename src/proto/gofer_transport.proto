@@ -25,20 +25,14 @@ message GetNamespaceResponse { Namespace namespace = 1; }
 message ListNamespacesRequest {
   // offset is a pagination parameter that defines where to start when counting
   // the list of objects to return.
-  int64 offset = 1;
+  uint64 offset = 1;
 
   // limit is a pagination parameter that defines how many objects to return
   // per result.
-  int64 limit = 2;
+  uint64 limit = 2;
 }
 
-message ListNamespacesResponse {
-  repeated Namespace namespaces = 1;
-
-  // offset is a pagination parameter that defines where to start when counting
-  // the list of objects to return.
-  int64 offset = 2;
-}
+message ListNamespacesResponse { repeated Namespace namespaces = 1; }
 
 message CreateNamespaceRequest {
   string id = 1;

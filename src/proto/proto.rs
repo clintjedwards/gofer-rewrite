@@ -25,7 +25,7 @@ pub struct Namespace {
     #[prost(uint64, tag="4")]
     pub created: u64,
     #[prost(uint64, tag="5")]
-    pub deleted: u64,
+    pub modified: u64,
 }
 ////////////// System Transport Models //////////////
 
@@ -58,21 +58,17 @@ pub struct GetNamespaceResponse {
 pub struct ListNamespacesRequest {
     /// offset is a pagination parameter that defines where to start when counting
     /// the list of objects to return.
-    #[prost(int64, tag="1")]
-    pub offset: i64,
+    #[prost(uint64, tag="1")]
+    pub offset: u64,
     /// limit is a pagination parameter that defines how many objects to return
     /// per result.
-    #[prost(int64, tag="2")]
-    pub limit: i64,
+    #[prost(uint64, tag="2")]
+    pub limit: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListNamespacesResponse {
     #[prost(message, repeated, tag="1")]
     pub namespaces: ::prost::alloc::vec::Vec<Namespace>,
-    /// offset is a pagination parameter that defines where to start when counting
-    /// the list of objects to return.
-    #[prost(int64, tag="2")]
-    pub offset: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateNamespaceRequest {

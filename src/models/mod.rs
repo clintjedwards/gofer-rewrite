@@ -2,6 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Represents a division of pipelines. Normally it is used to divide teams or logically different
 /// sections of workloads. This is the highest level unit.
+#[derive(sqlx::FromRow, Default, Debug, Clone)]
 pub struct Namespace {
     /// Unique user defined identifier.
     pub id: String,

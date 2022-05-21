@@ -1,4 +1,4 @@
-use std::str::FromStr;
+mod service;
 
 use crate::conf;
 use clap::{Parser, Subcommand};
@@ -6,6 +6,7 @@ use slog::o;
 use sloggers::terminal::{Destination, TerminalLoggerBuilder};
 use sloggers::types::Severity;
 use sloggers::Build;
+use std::str::FromStr;
 
 #[derive(Debug, Parser)]
 #[clap(name = "gofer")]
@@ -27,7 +28,10 @@ struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
-enum Commands {}
+enum Commands {
+    /// Manages service related commands pertaining to administration.
+    Service(service::ServiceSubcommands),
+}
 
 fn init_logging(severity: Severity) -> slog_scope::GlobalLoggerGuard {
     let mut builder = TerminalLoggerBuilder::new();
@@ -53,6 +57,29 @@ pub async fn init() {
     }
 
     match args.command {
-        _ => {}
+        Commands::Service(service) => {
+            let service_cmds = service.command;
+            match service_cmds {
+                service::ServiceCommands::Start => {
+                    if let conf::Kind::Api(parsed_config) =
+                        conf::Kind::new_api_config().parse(&args.config).unwrap()
+                    {
+                        let severity =
+                            sloggers::types::Severity::from_str(&parsed_config.general.log_level)
+                                .expect(
+                                    "could not parse log_level; must be one of
+                                ['trace', 'debug', 'info', 'warning', 'error', 'critical']",
+                                );
+                        let _guard = init_logging(severity);
+                        service::start(parsed_config).await;
+                    } else {
+                        panic!("Incorrect configuration file received trying to start api")
+                    }
+                }
+                service::ServiceCommands::Info => {
+                    service::info(config).await.expect("could not get info");
+                }
+            }
+        }
     }
 }
