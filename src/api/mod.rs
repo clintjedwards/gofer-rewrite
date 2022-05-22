@@ -11,7 +11,7 @@ use tonic::{Request, Response, Status};
 const BUILD_SEMVER: &str = env!("BUILD_SEMVER");
 const BUILD_COMMIT: &str = env!("BUILD_COMMIT");
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Api {
     conf: conf::api::Config,
     storage: storage::Db,

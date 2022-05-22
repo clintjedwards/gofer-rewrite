@@ -1,7 +1,7 @@
 mod namespaces;
 
 use sqlx::{migrate, Pool, Sqlite, SqlitePool};
-use std::{error::Error, fs::File, io, path::Path};
+use std::{error::Error, fmt, fs::File, io, path::Path};
 use thiserror::Error;
 
 /// The maximum amount of rows that can be returned by any single query.
@@ -19,9 +19,20 @@ pub enum StorageError {
     Unknown(String),
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug)]
+pub enum SqliteErrors {
+    Constraint,
+}
+
+impl fmt::Display for SqliteErrors {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Db {
-    conn: Option<Pool<Sqlite>>,
+    pool: Pool<Sqlite>,
 }
 
 // Create file if not exists.
@@ -47,7 +58,7 @@ impl Db {
             .unwrap();
 
         Ok(Db {
-            conn: Some(connection_pool),
+            pool: connection_pool,
         })
     }
 }
