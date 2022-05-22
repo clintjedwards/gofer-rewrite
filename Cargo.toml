@@ -23,6 +23,8 @@ sqlx = { version = "0.5", features = ["runtime-tokio-rustls", "sqlite"] }
 tokio = { version = "1.0", features = ["full"] }
 tonic = "0.7.1"
 thiserror = "1.0.31"
+tabled = "0.6.1"
+humantime = "2.1.0"
 
 [build-dependencies]
 tonic-build = "0.7.0"

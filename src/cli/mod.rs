@@ -1,6 +1,8 @@
+mod namespace;
 mod service;
 
-use crate::conf;
+use crate::conf::{self, cli::Config};
+// use crate::cli;
 use clap::{Parser, Subcommand};
 use slog::o;
 use sloggers::terminal::{Destination, TerminalLoggerBuilder};
@@ -21,16 +23,23 @@ use std::str::FromStr;
 struct Cli {
     /// Set configuration path; if empty default paths are used
     #[clap(long, value_name = "PATH")]
-    config: Option<String>,
+    config_path: Option<String>,
 
     #[clap(subcommand)]
     command: Commands,
+}
+
+struct CliHarness {
+    config: Config,
 }
 
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Manages service related commands pertaining to administration.
     Service(service::ServiceSubcommands),
+
+    /// Manages namespace related commands. Most commands are admin only.
+    Namespace(namespace::NamespaceSubcommands),
 }
 
 fn init_logging(severity: Severity) -> slog_scope::GlobalLoggerGuard {
@@ -48,21 +57,26 @@ fn init_logging(severity: Severity) -> slog_scope::GlobalLoggerGuard {
 pub async fn init() {
     let args = Cli::parse();
 
-    let config;
-    match conf::Kind::new_cli_config().parse(&args.config).unwrap() {
-        conf::Kind::Cli(parsed_config) => config = parsed_config,
+    let config = match conf::Kind::new_cli_config()
+        .parse(&args.config_path)
+        .unwrap()
+    {
+        conf::Kind::Cli(parsed_config) => parsed_config,
         _ => {
             panic!("Incorrect configuration file received")
         }
-    }
+    };
+
+    let cli = CliHarness { config };
 
     match args.command {
         Commands::Service(service) => {
             let service_cmds = service.command;
             match service_cmds {
                 service::ServiceCommands::Start => {
-                    if let conf::Kind::Api(parsed_config) =
-                        conf::Kind::new_api_config().parse(&args.config).unwrap()
+                    if let conf::Kind::Api(parsed_config) = conf::Kind::new_api_config()
+                        .parse(&args.config_path)
+                        .unwrap()
                     {
                         let severity =
                             sloggers::types::Severity::from_str(&parsed_config.general.log_level)
@@ -71,14 +85,23 @@ pub async fn init() {
                                 ['trace', 'debug', 'info', 'warning', 'error', 'critical']",
                                 );
                         let _guard = init_logging(severity);
-                        service::start(parsed_config).await;
+                        cli.service_start(parsed_config).await;
                     } else {
                         panic!("Incorrect configuration file received trying to start api")
                     }
                 }
                 service::ServiceCommands::Info => {
-                    service::info(config).await.expect("could not get info");
+                    cli.service_info().await;
                 }
+            }
+        }
+        Commands::Namespace(namespace) => {
+            let namespace_cmds = namespace.command;
+            match namespace_cmds {
+                namespace::NamespaceCommands::List => {
+                    cli.namespace_list().await;
+                }
+                _ => {}
             }
         }
     }

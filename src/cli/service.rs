@@ -11,9 +11,10 @@ use futures::{
 };
 use hyper::{Body, Request, Response};
 use slog_scope::info;
-use std::error::Error;
-use std::{convert::Infallible, task::Poll};
+use std::{convert::Infallible, process, task::Poll};
 use tower::Service;
+
+use super::CliHarness;
 
 #[derive(Debug, Args)]
 pub struct ServiceSubcommands {
@@ -30,33 +31,57 @@ pub enum ServiceCommands {
     gracefully stop on SIGINT or SIGTERM signals."
     )]
     Start,
+
+    /// Retrieve general information about Gofer's systems
     Info,
 }
 
-pub async fn start(config: conf::api::Config) {
-    let rest = axum::Router::new().route("/*path", axum::routing::any(frontend::frontend_handler));
-    let grpc = api::Api::new(config.clone()).await.init_grpc_server();
+impl CliHarness {
+    pub async fn service_start(&self, config: conf::api::Config) {
+        let rest =
+            axum::Router::new().route("/*path", axum::routing::any(frontend::frontend_handler));
+        let grpc = api::Api::new(config.clone()).await.init_grpc_server();
 
-    let service = MultiplexService { rest, grpc };
+        let service = MultiplexService { rest, grpc };
 
-    info!("Started grpc-web service"; "url" => &config.server.url.parse::<String>().unwrap());
+        info!("Started grpc-web service"; "url" => &config.server.url.parse::<String>().unwrap());
 
-    axum::Server::bind(&config.server.url.parse().unwrap())
-        .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
-        .serve(tower::make::Shared::new(service))
-        .await
-        .unwrap();
-}
+        axum::Server::bind(&config.server.url.parse().unwrap())
+            .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
+            .serve(tower::make::Shared::new(service))
+            .await
+            .unwrap();
+    }
 
-pub async fn info(config: conf::cli::Config) -> Result<(), Box<dyn Error>> {
-    let channel = tonic::transport::Channel::from_shared(config.server.to_string())?;
-    let conn = channel.connect().await?;
+    pub async fn service_info(&self) {
+        let channel = match tonic::transport::Channel::from_shared(self.config.server.to_string()) {
+            Ok(channel) => channel,
+            Err(e) => {
+                eprintln!("Could not open transport channel; {}", e);
+                process::exit(1);
+            }
+        };
 
-    let mut client = GoferClient::new(conn);
-    let request = tonic::Request::new(GetSystemInfoRequest {});
-    let response = client.get_system_info(request).await?.into_inner();
-    println!("{:?}", response);
-    Ok(())
+        let conn = match channel.connect().await {
+            Ok(conn) => conn,
+            Err(e) => {
+                eprintln!("Could not connect to server; {}", e);
+                process::exit(1);
+            }
+        };
+
+        let mut client = GoferClient::new(conn);
+        let request = tonic::Request::new(GetSystemInfoRequest {});
+        let response = match client.get_system_info(request).await {
+            Ok(response) => response.into_inner(),
+            Err(e) => {
+                eprintln!("Could not get info; {}", e);
+                process::exit(1);
+            }
+        };
+
+        println!("{:?}", response);
+    }
 }
 
 // Below this line I have little to no idea what is going on. But it seems to work.

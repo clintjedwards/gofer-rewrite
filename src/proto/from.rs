@@ -15,3 +15,15 @@ impl From<models::Namespace> for proto::Namespace {
         }
     }
 }
+
+impl From<proto::Namespace> for models::Namespace {
+    fn from(ns: proto::Namespace) -> Self {
+        models::Namespace {
+            id: ns.id,
+            name: ns.name,
+            description: ns.description,
+            created: ns.created as u128,
+            modified: ns.modified as u128,
+        }
+    }
+}
