@@ -95,8 +95,6 @@ pub struct UpdateNamespaceRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateNamespaceResponse {
-    #[prost(message, optional, tag="1")]
-    pub namespace: ::core::option::Option<Namespace>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeleteNamespaceRequest {

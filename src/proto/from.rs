@@ -10,8 +10,8 @@ impl From<models::Namespace> for proto::Namespace {
             id: ns.id,
             name: ns.name,
             description: ns.description,
-            created: ns.created,
-            modified: ns.modified,
+            created: ns.created as u64,
+            modified: ns.modified as u64,
         }
     }
 }

@@ -24,6 +24,17 @@ pub enum SqliteErrors {
     Constraint,
 }
 
+/// Sqlite Errors are determined by database error code. We map these to the specific code so that
+/// when we come back with a database error we can detect which one happened.
+/// See the codes here: https://www.sqlite.org/rescode.html
+impl SqliteErrors {
+    fn value(&self) -> String {
+        match *self {
+            SqliteErrors::Constraint => "19".to_string(),
+        }
+    }
+}
+
 impl fmt::Display for SqliteErrors {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)

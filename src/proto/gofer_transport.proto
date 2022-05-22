@@ -46,7 +46,7 @@ message UpdateNamespaceRequest {
   string name = 2;
   string description = 3;
 }
-message UpdateNamespaceResponse { Namespace namespace = 1; }
+message UpdateNamespaceResponse {}
 
 message DeleteNamespaceRequest {
   string id = 1; // Unique identifier

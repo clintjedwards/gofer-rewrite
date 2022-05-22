@@ -11,9 +11,9 @@ pub struct Namespace {
     /// Short description of what namespace is used for.
     pub description: String,
     /// The creation time in epoch milli.
-    pub created: u64,
+    pub created: u128,
     /// The last modified time in epoch milli.
-    pub modified: u64,
+    pub modified: u128,
 }
 
 impl Namespace {
@@ -21,7 +21,7 @@ impl Namespace {
         let current_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_secs();
+            .as_millis();
 
         Namespace {
             id: id.to_string(),
