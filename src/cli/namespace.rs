@@ -1,9 +1,13 @@
 use super::CliHarness;
-use crate::proto::{gofer_client::GoferClient, *};
+use crate::cli::connect;
+use crate::cli::epoch;
+use crate::proto::{
+    CreateNamespaceRequest, DeleteNamespaceRequest, GetNamespaceRequest, ListNamespacesRequest,
+    UpdateNamespaceRequest,
+};
 use clap::{Args, Subcommand};
 use comfy_table::{presets::ASCII_MARKDOWN, Cell, CellAlignment, Color, ContentArrangement};
 use std::process;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Args)]
 pub struct NamespaceSubcommands {
@@ -22,8 +26,10 @@ pub enum NamespaceCommands {
         /// with only hyphens/dashes as alternate characters.
         id: String,
         /// Humanized name for namespace.
+        #[clap(short, long)]
         name: Option<String>,
         /// Helpful description of namespace.
+        #[clap(short, long)]
         description: Option<String>,
     },
 
@@ -35,8 +41,10 @@ pub enum NamespaceCommands {
         /// Identifier for namespace
         id: String,
         /// Humanized name for namespace.
+        #[clap(short, long)]
         name: Option<String>,
         /// Helpful description of namespace.
+        #[clap(short, long)]
         description: Option<String>,
     },
 
@@ -46,22 +54,14 @@ pub enum NamespaceCommands {
 
 impl CliHarness {
     pub async fn namespace_list(&self) {
-        let channel = match tonic::transport::Channel::from_shared(self.config.server.to_string()) {
-            Ok(channel) => channel,
+        let mut client = match connect(&self.config.server).await {
+            Ok(client) => client,
             Err(e) => {
-                eprintln!("Could not open transport channel; {}", e);
+                eprintln!("Could not list namespaces; {}", e);
                 process::exit(1);
             }
         };
 
-        let conn = match channel.connect().await {
-            Ok(conn) => conn,
-            Err(e) => {
-                eprintln!("Could not connect to server; {}", e);
-                process::exit(1);
-            }
-        };
-        let mut client = GoferClient::new(conn);
         let request = tonic::Request::new(ListNamespacesRequest {
             offset: 0,
             limit: 0,
@@ -69,7 +69,7 @@ impl CliHarness {
         let response = match client.list_namespaces(request).await {
             Ok(response) => response.into_inner(),
             Err(e) => {
-                eprintln!("Could not get namespaces; {}", e.message());
+                eprintln!("Could not list namespaces; {}", e.message());
                 process::exit(1);
             }
         };
@@ -107,17 +107,38 @@ impl CliHarness {
 
         println!("{table}",);
     }
-    pub async fn namespace_create(&self) {}
+    pub async fn namespace_create(
+        &self,
+        id: &str,
+        name: Option<String>,
+        description: Option<String>,
+    ) {
+        let mut client = match connect(&self.config.server).await {
+            Ok(client) => client,
+            Err(e) => {
+                eprintln!("Could not create namespace; {}", e);
+                process::exit(1);
+            }
+        };
+
+        let request = tonic::Request::new(CreateNamespaceRequest {
+            id: id.to_string(),
+            name: name.unwrap_or_default(),
+            description: description.unwrap_or_default(),
+        });
+        let response = match client.create_namespace(request).await {
+            Ok(response) => response.into_inner(),
+            Err(e) => {
+                eprintln!("Could not create namespace; {}", e.message());
+                process::exit(1);
+            }
+        };
+
+        let namespace = response.namespace.unwrap();
+
+        println!("Created namespace: [{}] {}", namespace.id, namespace.name);
+    }
     pub async fn namespace_get(&self) {}
     pub async fn namespace_update(&self) {}
     pub async fn namespace_delete(&self) {}
-}
-
-fn epoch() -> u64 {
-    let current_epoch = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-
-    u64::try_from(current_epoch).unwrap()
 }

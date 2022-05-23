@@ -2,13 +2,15 @@ mod namespace;
 mod service;
 
 use crate::conf::{self, cli::Config};
-// use crate::cli;
+use crate::proto::gofer_client::GoferClient;
 use clap::{Parser, Subcommand};
 use slog::o;
 use sloggers::terminal::{Destination, TerminalLoggerBuilder};
 use sloggers::types::Severity;
 use sloggers::Build;
-use std::str::FromStr;
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{error::Error, str::FromStr};
+use tonic::transport::channel::Channel;
 
 #[derive(Debug, Parser)]
 #[clap(name = "gofer")]
@@ -51,6 +53,23 @@ fn init_logging(severity: Severity) -> slog_scope::GlobalLoggerGuard {
     let log = slog::Logger::root(root_logger, o!());
 
     slog_scope::set_global_logger(log)
+}
+
+async fn connect(url: &str) -> Result<GoferClient<Channel>, Box<dyn Error>> {
+    let conn = tonic::transport::Channel::from_shared(url.to_string())?
+        .connect()
+        .await?;
+
+    Ok(GoferClient::new(conn))
+}
+
+fn epoch() -> u64 {
+    let current_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+    u64::try_from(current_epoch).unwrap()
 }
 
 /// init the CLI and appropriately run the correct command.
@@ -100,6 +119,13 @@ pub async fn init() {
             match namespace_cmds {
                 namespace::NamespaceCommands::List => {
                     cli.namespace_list().await;
+                }
+                namespace::NamespaceCommands::Create {
+                    id,
+                    name,
+                    description,
+                } => {
+                    cli.namespace_create(&id, name, description).await;
                 }
                 _ => {}
             }

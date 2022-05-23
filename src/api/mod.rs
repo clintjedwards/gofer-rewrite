@@ -60,7 +60,12 @@ impl Gofer for Api {
         request: Request<CreateNamespaceRequest>,
     ) -> Result<Response<CreateNamespaceResponse>, Status> {
         let args = &request.into_inner();
-        let new_namespace = models::Namespace::new(&args.id, &args.name, &args.description);
+        let new_namespace = match models::Namespace::new(&args.id, &args.name, &args.description) {
+            Ok(namespace) => namespace,
+            Err(e) => {
+                return Err(Status::failed_precondition(e.to_string()));
+            }
+        };
 
         let result = self.storage.create_namespace(&new_namespace).await;
         match result {
@@ -183,11 +188,16 @@ impl Api {
         const DEFAULT_NAMESPACE_DESCRIPTION: &str =
             "The default namespace when no other namespace is specified.";
 
-        let default_namespace = models::Namespace::new(
+        let default_namespace = match models::Namespace::new(
             DEFAULT_NAMESPACE_ID,
             DEFAULT_NAMESPACE_NAME,
             DEFAULT_NAMESPACE_DESCRIPTION,
-        );
+        ) {
+            Ok(namespace) => namespace,
+            Err(e) => {
+                return Err(storage::StorageError::Unknown(e.to_string()));
+            }
+        };
 
         match self.storage.create_namespace(&default_namespace).await {
             Ok(_) => Ok(()),
