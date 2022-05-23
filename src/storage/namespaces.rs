@@ -128,12 +128,12 @@ impl Db {
         UPDATE namespaces
         SET name = ?, description = ?, modified = ?
         WHERE id = ?;
-        LIMIT 1;
             "#,
         )
         .bind(&namespace.name)
         .bind(&namespace.description)
         .bind(namespace.modified as i64)
+        .bind(&namespace.id)
         .execute(&mut conn)
         .map_ok(|_| ())
         .map_err(|e| match e {
@@ -153,8 +153,7 @@ impl Db {
         sqlx::query(
             r#"
         DELETE FROM namespaces
-        WHERE id = ?
-        LIMIT 1;
+        WHERE id = ?;
             "#,
         )
         .bind(id)

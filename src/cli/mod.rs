@@ -63,6 +63,7 @@ async fn connect(url: &str) -> Result<GoferClient<Channel>, Box<dyn Error>> {
     Ok(GoferClient::new(conn))
 }
 
+/// Return the current epoch time
 fn epoch() -> u64 {
     let current_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -70,6 +71,14 @@ fn epoch() -> u64 {
         .as_millis();
 
     u64::try_from(current_epoch).unwrap()
+}
+
+/// humanize_duration transforms a given time into a humanized duration string from the current time
+/// (i.e. 'about an hour ago' )
+fn humanize_duration(time: i64) -> String {
+    let time_diff = time - epoch() as i64;
+    let time_diff_duration = chrono::Duration::milliseconds(time_diff);
+    chrono_humanize::HumanTime::from(time_diff_duration).to_string()
 }
 
 /// init the CLI and appropriately run the correct command.
@@ -127,7 +136,19 @@ pub async fn init() {
                 } => {
                     cli.namespace_create(&id, name, description).await;
                 }
-                _ => {}
+                namespace::NamespaceCommands::Get { id } => {
+                    cli.namespace_get(&id).await;
+                }
+                namespace::NamespaceCommands::Update {
+                    id,
+                    name,
+                    description,
+                } => {
+                    cli.namespace_update(&id, name, description).await;
+                }
+                namespace::NamespaceCommands::Delete { id } => {
+                    cli.namespace_delete(&id).await;
+                }
             }
         }
     }
