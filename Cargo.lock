@@ -244,6 +244,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono-humanize"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eddc119501d583fd930cb92144e605f44e0252c38dd89d9247fffa1993375cb"
+dependencies = [
+ "chrono",
+]
+
+[[package]]
 name = "clap"
 version = "3.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -266,7 +275,7 @@ version = "3.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25320346e922cffe59c0bbc5410c8d8784509efb321488971081313cb1e1a33c"
 dependencies = [
- "heck",
+ "heck 0.4.0",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -289,6 +298,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8ad8cef104ac57b68b89df3208164d228503abbdce70f6880ffa3d970e7443a"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "colored"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3616f750b84d8f0de8a58bda93e08e2a81ad3f523089b05f1dffecab48c6cbd"
+dependencies = [
+ "atty",
+ "lazy_static",
+ "winapi",
+]
+
+[[package]]
+name = "comfy-table"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b103d85ca6e209388771bfb7aa6b68a7aeec4afbf6f0a0264bfbf50360e5212e"
+dependencies = [
+ "crossterm",
+ "strum",
+ "strum_macros",
+ "unicode-width",
 ]
 
 [[package]]
@@ -371,6 +403,31 @@ checksum = "0bf124c720b7686e3c2663cf54062ab0f68a88af2fb6a030e87e30bf721fcb38"
 dependencies = [
  "cfg-if",
  "lazy_static",
+]
+
+[[package]]
+name = "crossterm"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2102ea4f781910f8a5b98dd061f4c2023f479ce7bb1236330099ceb5a93cf17"
+dependencies = [
+ "bitflags",
+ "crossterm_winapi",
+ "libc",
+ "mio",
+ "parking_lot 0.12.0",
+ "signal-hook",
+ "signal-hook-mio",
+ "winapi",
+]
+
+[[package]]
+name = "crossterm_winapi"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ae1b35a484aa10e07fe0638d02301c5ad24de82d310ccbd2f3693da5f09bf1c"
+dependencies = [
+ "winapi",
 ]
 
 [[package]]
@@ -650,10 +707,13 @@ name = "gofer-rewrite"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "chrono",
+ "chrono-humanize",
  "clap",
+ "colored",
+ "comfy-table",
  "config",
  "futures",
- "humantime",
  "hyper",
  "mime_guess",
  "prost",
@@ -663,7 +723,6 @@ dependencies = [
  "slog-scope",
  "sloggers",
  "sqlx",
- "tabled",
  "thiserror",
  "tokio",
  "tonic",
@@ -715,6 +774,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7249a3129cbc1ffccd74857f81464a323a152173cdb134e0fd81bc803b29facf"
 dependencies = [
  "hashbrown 0.11.2",
+]
+
+[[package]]
+name = "heck"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
+dependencies = [
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -780,12 +848,6 @@ name = "httpdate"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
-
-[[package]]
-name = "humantime"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
@@ -1112,15 +1174,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "029d8d0b2f198229de29dca79676f2738ff952edf3fde542eb8bf94d8c21b435"
 
 [[package]]
-name = "papergrid"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63709d10e2c2ec58f7bd91d8258d27ce80de090064b0ddf3a4bf38b907b61b8a"
-dependencies = [
- "unicode-width",
-]
-
-[[package]]
 name = "parking_lot"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1345,7 +1398,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "cmake",
- "heck",
+ "heck 0.4.0",
  "itertools",
  "lazy_static",
  "log",
@@ -1699,6 +1752,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "signal-hook"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a253b5e89e2698464fc26b545c9edceb338e18a89effeeecfea192c3025be29d"
+dependencies = [
+ "libc",
+ "signal-hook-registry",
+]
+
+[[package]]
+name = "signal-hook-mio"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29ad2e15f37ec9a6cc544097b78a1ec90001e9f71b81338ca39f430adaca99af"
+dependencies = [
+ "libc",
+ "mio",
+ "signal-hook",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1904,7 +1978,7 @@ checksum = "bc0fba2b0cae21fc00fe6046f8baa4c7fcb49e379f0f592b04696607f69ed2e1"
 dependencies = [
  "dotenv",
  "either",
- "heck",
+ "heck 0.4.0",
  "once_cell",
  "proc-macro2",
  "quote",
@@ -1943,6 +2017,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
+name = "strum"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cae14b91c7d11c9a851d3fbc80a963198998c2a64eec840477fa92d8ce9b70bb"
+
+[[package]]
+name = "strum_macros"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5bb0dc7ee9c15cea6199cde9a127fa16a4c5819af85395457ad72d68edc85a38"
+dependencies = [
+ "heck 0.3.3",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1958,27 +2051,6 @@ name = "sync_wrapper"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20518fe4a4c9acf048008599e464deb21beeae3d3578418951a189c235a7a9a8"
-
-[[package]]
-name = "tabled"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d15827061abcf689257b1841c8e2732b1dfcc3ef825b24ce6c606e1e9e1a7bde"
-dependencies = [
- "papergrid",
- "tabled_derive",
-]
-
-[[package]]
-name = "tabled_derive"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "278ea3921cee8c5a69e0542998a089f7a14fa43c9c4e4f9951295da89bd0c943"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
 
 [[package]]
 name = "take_mut"

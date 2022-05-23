@@ -75,7 +75,7 @@ impl CliHarness {
         let response = match client.get_system_info(request).await {
             Ok(response) => response.into_inner(),
             Err(e) => {
-                eprintln!("Could not get info; {}", e);
+                eprintln!("Could not get info; {}", e.message());
                 process::exit(1);
             }
         };

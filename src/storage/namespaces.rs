@@ -39,8 +39,8 @@ impl Db {
             id: row.get("id"),
             name: row.get("name"),
             description: row.get("description"),
-            created: row.get::<i64, _>("created") as u128,
-            modified: row.get::<i64, _>("modified") as u128,
+            created: row.get::<i64, _>("created") as u64,
+            modified: row.get::<i64, _>("modified") as u64,
         })
         .fetch_all(&mut conn)
         .await;
@@ -104,8 +104,8 @@ impl Db {
             id: row.get("id"),
             name: row.get("name"),
             description: row.get("description"),
-            created: row.get::<i64, _>("created") as u128,
-            modified: row.get::<i64, _>("modified") as u128,
+            created: row.get::<i64, _>("created") as u64,
+            modified: row.get::<i64, _>("modified") as u64,
         })
         .fetch_one(&mut conn)
         .map_err(|e| match e {

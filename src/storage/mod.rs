@@ -30,7 +30,7 @@ pub enum SqliteErrors {
 impl SqliteErrors {
     fn value(&self) -> String {
         match *self {
-            SqliteErrors::Constraint => "19".to_string(),
+            SqliteErrors::Constraint => "1555".to_string(),
         }
     }
 }

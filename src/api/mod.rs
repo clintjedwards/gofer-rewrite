@@ -1,4 +1,3 @@
-use crate::conf;
 use crate::models;
 use crate::proto;
 use crate::proto::{
@@ -6,6 +5,7 @@ use crate::proto::{
     *,
 };
 use crate::storage;
+use crate::{conf, storage::StorageError};
 use slog_scope::info;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tonic::{Request, Response, Status};
@@ -113,11 +113,6 @@ impl Gofer for Api {
     ) -> Result<Response<UpdateNamespaceResponse>, Status> {
         let args = &request.into_inner();
 
-        let current_epoch = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-
         let result = self
             .storage
             .update_namespace(&models::Namespace {
@@ -125,7 +120,7 @@ impl Gofer for Api {
                 name: args.name.clone(),
                 description: args.description.clone(),
                 created: 0,
-                modified: current_epoch,
+                modified: epoch(),
             })
             .await;
 
@@ -174,7 +169,33 @@ impl Api {
     pub async fn new(conf: conf::api::Config) -> Self {
         let storage = storage::Db::new(&conf.server.storage_path).await.unwrap();
 
-        Api { conf, storage }
+        let api = Api { conf, storage };
+
+        api.create_default_namespace().await.unwrap();
+
+        api
+    }
+
+    /// Gofer starts with a default namespace that all users have access to.
+    async fn create_default_namespace(&self) -> Result<(), StorageError> {
+        const DEFAULT_NAMESPACE_ID: &str = "default";
+        const DEFAULT_NAMESPACE_NAME: &str = "Default";
+        const DEFAULT_NAMESPACE_DESCRIPTION: &str =
+            "The default namespace when no other namespace is specified.";
+
+        let default_namespace = models::Namespace::new(
+            DEFAULT_NAMESPACE_ID,
+            DEFAULT_NAMESPACE_NAME,
+            DEFAULT_NAMESPACE_DESCRIPTION,
+        );
+
+        match self.storage.create_namespace(&default_namespace).await {
+            Ok(_) => Ok(()),
+            Err(e) => match e {
+                storage::StorageError::Exists => Ok(()),
+                _ => Err(e),
+            },
+        }
     }
 
     // Return new instance of the Gofer GRPC server.
@@ -183,17 +204,11 @@ impl Api {
     }
 }
 
-//   // ListNamespaces returns all registered namespaces.
-//   rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
+fn epoch() -> u64 {
+    let current_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
 
-//   // CreateNamespace creates a new namespace that separates pipelines.
-//   rpc CreateNamespace(CreateNamespaceRequest) returns (CreateNamespaceResponse);
-
-//   // GetNamespace returns a single namespace by id.
-//   rpc GetNamespace(GetNamespaceRequest) returns (GetNamespaceResponse);
-
-//   // UpdateNamespace updates the details of a particular namespace by id.
-//   rpc UpdateNamespace(UpdateNamespaceRequest) returns (UpdateNamespaceResponse);
-
-//   // DeleteNamespace removes a namespace by id.
-//   rpc DeleteNamespace(DeleteNamespaceRequest) returns (DeleteNamespaceResponse);
+    u64::try_from(current_epoch).unwrap()
+}

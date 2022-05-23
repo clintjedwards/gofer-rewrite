@@ -1,12 +1,9 @@
 use super::CliHarness;
-use crate::models;
 use crate::proto::{gofer_client::GoferClient, *};
 use clap::{Args, Subcommand};
-use humantime;
+use comfy_table::{presets::ASCII_MARKDOWN, Cell, CellAlignment, Color, ContentArrangement};
 use std::process;
-use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tabled::{Style, Table, Tabled};
 
 #[derive(Debug, Args)]
 pub struct NamespaceSubcommands {
@@ -47,38 +44,6 @@ pub enum NamespaceCommands {
     Delete { id: String },
 }
 
-#[derive(Debug, Tabled)]
-struct TabledNamespace {
-    /// Unique user defined identifier.
-    pub id: String,
-    /// Humanized name; great for reading from UIs.
-    pub name: String,
-    /// Short description of what namespace is used for.
-    pub description: String,
-    /// The creation time in epoch milli.
-    pub created: String,
-}
-
-impl From<models::Namespace> for TabledNamespace {
-    fn from(ns: models::Namespace) -> Self {
-        let current_epoch = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-
-        let time_diff = current_epoch - ns.created;
-        let humanized_create_time =
-            humantime::format_duration(Duration::from_millis(time_diff as u64));
-
-        TabledNamespace {
-            id: ns.id,
-            name: ns.name,
-            description: ns.description,
-            created: humanized_create_time.to_string(),
-        }
-    }
-}
-
 impl CliHarness {
     pub async fn namespace_list(&self) {
         let channel = match tonic::transport::Channel::from_shared(self.config.server.to_string()) {
@@ -104,26 +69,55 @@ impl CliHarness {
         let response = match client.list_namespaces(request).await {
             Ok(response) => response.into_inner(),
             Err(e) => {
-                eprintln!("Could not get info; {}", e);
+                eprintln!("Could not get namespaces; {}", e.message());
                 process::exit(1);
             }
         };
 
-        let namespaces: Vec<models::Namespace> = response
-            .namespaces
-            .into_iter()
-            .map(|namespace| namespace.into())
-            .collect();
+        let mut table = comfy_table::Table::new();
+        table
+            .load_preset(ASCII_MARKDOWN)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(vec![
+                Cell::new("id")
+                    .set_alignment(CellAlignment::Center)
+                    .fg(Color::Blue),
+                Cell::new("name")
+                    .set_alignment(CellAlignment::Center)
+                    .fg(Color::Blue),
+                Cell::new("description")
+                    .set_alignment(CellAlignment::Center)
+                    .fg(Color::Blue),
+                Cell::new("created")
+                    .set_alignment(CellAlignment::Center)
+                    .fg(Color::Blue),
+            ]);
 
-        let tabled_namespaces: Vec<TabledNamespace> = namespaces
-            .into_iter()
-            .map(|namespace| namespace.into())
-            .collect();
+        for namespace in response.namespaces {
+            let time_diff = namespace.created as i64 - epoch() as i64;
+            let time_diff_duration = chrono::Duration::milliseconds(time_diff);
+            let humanized_create_time = chrono_humanize::HumanTime::from(time_diff_duration);
+            table.add_row(vec![
+                Cell::new(namespace.id).fg(Color::Yellow),
+                Cell::new(namespace.name),
+                Cell::new(namespace.description),
+                Cell::new(humanized_create_time),
+            ]);
+        }
 
-        println!("{}", Table::new(tabled_namespaces).with(Style::psql()));
+        println!("{table}",);
     }
     pub async fn namespace_create(&self) {}
     pub async fn namespace_get(&self) {}
     pub async fn namespace_update(&self) {}
     pub async fn namespace_delete(&self) {}
+}
+
+fn epoch() -> u64 {
+    let current_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+    u64::try_from(current_epoch).unwrap()
 }
