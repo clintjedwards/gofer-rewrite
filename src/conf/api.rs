@@ -8,7 +8,9 @@ pub struct Config {
 
 #[derive(Deserialize, Default, Debug, Clone)]
 pub struct General {
-    pub debug: bool,
+    /// DevMode turns on humanized debug messages, extra debug logging for the webserver and other
+    /// convenient features for development. Usually turned on along side LogLevel=debug.
+    pub dev_mode: bool,
     pub log_level: String,
     pub encryption_key: String,
 }

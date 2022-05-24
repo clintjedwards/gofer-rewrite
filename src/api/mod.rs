@@ -27,7 +27,7 @@ impl Gofer for Api {
     ) -> Result<Response<GetSystemInfoResponse>, Status> {
         Ok(Response::new(GetSystemInfoResponse {
             commit: BUILD_COMMIT.to_string(),
-            debug_enabled: self.conf.general.debug,
+            dev_mode_enabled: self.conf.general.dev_mode,
             semver: BUILD_SEMVER.to_string(),
         }))
     }

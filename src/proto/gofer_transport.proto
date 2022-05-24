@@ -11,7 +11,7 @@ import "gofer_message.proto";
 message GetSystemInfoRequest {}
 message GetSystemInfoResponse {
   string commit = 1;
-  bool debug_enabled = 2;
+  bool dev_mode_enabled = 2;
   string semver = 3;
 }
 

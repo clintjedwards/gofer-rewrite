@@ -37,7 +37,7 @@ pub struct GetSystemInfoResponse {
     #[prost(string, tag="1")]
     pub commit: ::prost::alloc::string::String,
     #[prost(bool, tag="2")]
-    pub debug_enabled: bool,
+    pub dev_mode_enabled: bool,
     #[prost(string, tag="3")]
     pub semver: ::prost::alloc::string::String,
 }

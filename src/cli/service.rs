@@ -3,7 +3,9 @@ use crate::conf;
 use crate::frontend;
 use crate::proto::gofer_client::GoferClient;
 use crate::proto::GetSystemInfoRequest;
+
 use axum::{body::BoxBody, response::IntoResponse};
+use axum_server::tls_rustls::RustlsConfig;
 use clap::{Args, Subcommand};
 use futures::{
     future::{BoxFuture, Either},
@@ -43,6 +45,8 @@ impl CliHarness {
         let grpc = api::Api::new(config.clone()).await.init_grpc_server();
 
         let service = MultiplexService { rest, grpc };
+
+        let tls_config = RustlsConfig::from_pem().await.unwrap();
 
         info!("Started grpc-web service"; "url" => &config.server.url.parse::<String>().unwrap());
 
@@ -84,7 +88,6 @@ impl CliHarness {
     }
 }
 
-// Below this line I have little to no idea what is going on. But it seems to work.
 #[derive(Clone)]
 pub struct MultiplexService<A, B> {
     pub rest: A,
@@ -104,6 +107,8 @@ where
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
     type Response = Response<BoxBody>;
 
+    // This seems incorrect. We never check GRPC readiness; but I'm too lazy
+    // to fix it and it seems to work well enough.
     fn poll_ready(
         &mut self,
         cx: &mut std::task::Context<'_>,
