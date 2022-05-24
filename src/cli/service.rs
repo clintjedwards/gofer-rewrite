@@ -46,12 +46,21 @@ impl CliHarness {
 
         let service = MultiplexService { rest, grpc };
 
-        let tls_config = RustlsConfig::from_pem().await.unwrap();
+        let tls_config = RustlsConfig::from_pem(
+            config.server.tls_cert.clone().into_bytes(),
+            config.server.tls_key.clone().into_bytes(),
+        )
+        .await
+        .unwrap();
+
+        let tcp_settings = axum_server::AddrIncomingConfig::new()
+            .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
+            .build();
 
         info!("Started grpc-web service"; "url" => &config.server.url.parse::<String>().unwrap());
 
-        axum::Server::bind(&config.server.url.parse().unwrap())
-            .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
+        axum_server::bind_rustls(config.server.url.parse().unwrap(), tls_config)
+            .addr_incoming_config(tcp_settings)
             .serve(tower::make::Shared::new(service))
             .await
             .unwrap();

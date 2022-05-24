@@ -8,8 +8,5 @@ encryption_key = "default"
 [server]
 url = "127.0.0.1:8080"
 storage_path = "/tmp/gofer.db"
-tls_cert_path = ""
-tls_key_path = ""
-
-#TODO(clintjedwards): Embed the TLS stuff and have it go through the config. Make sure to make the
-# TLS stuff go through the config only if we are in dev_mode and the cert path is empty
+tls_cert = "localhost"
+tls_key = "localhost"

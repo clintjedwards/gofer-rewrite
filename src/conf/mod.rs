@@ -97,7 +97,8 @@ impl Kind {
         // Then attempt to deserialize based on which config needed.
         match self {
             Kind::Api(_) => {
-                let parsed_config = config_src.try_deserialize::<api::Config>()?;
+                let mut parsed_config = config_src.try_deserialize::<api::Config>()?;
+                parsed_config.provision_dev_mode_certs();
                 Ok(Kind::Api(parsed_config))
             }
             Kind::Cli(_) => {
