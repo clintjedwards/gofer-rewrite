@@ -1,3 +1,4 @@
+use crate::frontend;
 use crate::models;
 use crate::proto;
 use crate::proto::{
@@ -9,6 +10,22 @@ use crate::{conf, storage::StorageError};
 use slog_scope::info;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tonic::{Request, Response, Status};
+
+use axum::{body::BoxBody, response::IntoResponse};
+use axum_server::tls_rustls::RustlsConfig;
+use clap::{Args, Subcommand};
+use futures::{
+    future::{BoxFuture, Either},
+    ready, TryFutureExt,
+};
+use serde::de::IntoDeserializer;
+use std::io::BufReader;
+use std::{convert::Infallible, process, sync::Arc, task::Poll};
+use tokio_rustls::{
+    rustls::{Certificate, PrivateKey, ServerConfig},
+    TlsAcceptor,
+};
+use tower::Service;
 
 const BUILD_SEMVER: &str = env!("BUILD_SEMVER");
 const BUILD_COMMIT: &str = env!("BUILD_COMMIT");
@@ -208,11 +225,80 @@ impl Api {
         }
     }
 
-    // Return new instance of the Gofer GRPC server.
-    pub fn init_grpc_server(&self) -> GoferServer<Api> {
-        GoferServer::new(self.clone())
+    pub async fn start_service(&self) {
+        let rest =
+            axum::Router::new().route("/*path", axum::routing::any(frontend::frontend_handler));
+        let grpc = GoferServer::new(self.clone());
+
+        let service = MultiplexService { rest, grpc };
+
+        let cert = self.conf.server.tls_cert.clone().into_bytes();
+        let key = self.conf.server.tls_key.clone().into_bytes();
+
+        let mut buffered_cert: BufReader<&[u8]> = BufReader::new(&cert);
+        let mut buffered_key: BufReader<&[u8]> = BufReader::new(&key);
+
+        let certs = rustls_pemfile::certs(&mut buffered_cert)
+            .unwrap()
+            .into_iter()
+            .map(Certificate)
+            .collect();
+        let key = rustls_pemfile::pkcs8_private_keys(&mut buffered_key)
+            .unwrap()
+            .remove(0);
+        let key = PrivateKey(key);
+
+        let tls_config = ServerConfig::builder()
+            .with_safe_defaults()
+            .with_no_client_auth()
+            .with_single_cert(certs, key)
+            .expect("bad certificate/key");
+
+        let tls_config = RustlsConfig::from_config(Arc::new(tls_config));
+
+        let tcp_settings = axum_server::AddrIncomingConfig::new()
+            .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
+            .build();
+
+        info!("Started grpc-web service"; "url" => self.conf.server.url.parse::<String>().unwrap());
+
+        axum_server::bind_rustls(self.conf.server.url.parse().unwrap(), tls_config)
+            .addr_incoming_config(tcp_settings)
+            .serve(tower::make::Shared::new(service))
+            .await
+            .unwrap();
     }
 }
+
+// // Load public certificate from file.
+// fn load_certs(filename: &str) -> io::Result<Vec<rustls::Certificate>> {
+//     // Open certificate file.
+//     let certfile = fs::File::open(filename)
+//         .map_err(|e| error(format!("failed to open {}: {}", filename, e)))?;
+//     let mut reader = io::BufReader::new(certfile);
+
+//     // Load and return certificate.
+//     let certs = rustls_pemfile::certs(&mut reader)
+//         .map_err(|_| error("failed to load certificate".into()))?;
+//     Ok(certs.into_iter().map(rustls::Certificate).collect())
+// }
+
+// // Load private key from file.
+// fn load_private_key(filename: &str) -> io::Result<rustls::PrivateKey> {
+//     // Open keyfile.
+//     let keyfile = fs::File::open(filename)
+//         .map_err(|e| error(format!("failed to open {}: {}", filename, e)))?;
+//     let mut reader = io::BufReader::new(keyfile);
+
+//     // Load and return a single private key.
+//     let keys = rustls_pemfile::rsa_private_keys(&mut reader)
+//         .map_err(|_| error("failed to load private key".into()))?;
+//     if keys.len() != 1 {
+//         return Err(error("expected a single private key".into()));
+//     }
+
+//     Ok(rustls::PrivateKey(keys[0].clone()))
+// }
 
 fn epoch() -> u64 {
     let current_epoch = SystemTime::now()
@@ -221,4 +307,52 @@ fn epoch() -> u64 {
         .as_millis();
 
     u64::try_from(current_epoch).unwrap()
+}
+
+#[derive(Clone)]
+pub struct MultiplexService<A, B> {
+    pub rest: A,
+    pub grpc: B,
+}
+
+impl<A, B> Service<hyper::Request<hyper::Body>> for MultiplexService<A, B>
+where
+    A: Service<hyper::Request<hyper::Body>, Error = Infallible>,
+    A::Response: IntoResponse,
+    A::Future: Send + 'static,
+    B: Service<hyper::Request<hyper::Body>, Error = Infallible>,
+    B::Response: IntoResponse,
+    B::Future: Send + 'static,
+{
+    type Error = Infallible;
+    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
+    type Response = hyper::Response<BoxBody>;
+
+    // This seems incorrect. We never check GRPC readiness; but I'm too lazy
+    // to fix it and it seems to work well enough.
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        Poll::Ready(if let Err(err) = ready!(self.rest.poll_ready(cx)) {
+            Err(err)
+        } else {
+            ready!(self.rest.poll_ready(cx))
+        })
+    }
+
+    fn call(&mut self, req: hyper::Request<hyper::Body>) -> Self::Future {
+        let hv = req.headers().get("content-type").map(|x| x.as_bytes());
+
+        let fut = if hv
+            .filter(|value| value.starts_with(b"application/grpc"))
+            .is_some()
+        {
+            Either::Left(self.grpc.call(req).map_ok(|res| res.into_response()))
+        } else {
+            Either::Right(self.rest.call(req).map_ok(|res| res.into_response()))
+        };
+
+        Box::pin(fut)
+    }
 }

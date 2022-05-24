@@ -1,6 +1,5 @@
 use crate::api;
 use crate::conf;
-use crate::frontend;
 use crate::proto::gofer_client::GoferClient;
 use crate::proto::GetSystemInfoRequest;
 
@@ -12,8 +11,13 @@ use futures::{
     ready, TryFutureExt,
 };
 use hyper::{Body, Request, Response};
+use serde::de::IntoDeserializer;
 use slog_scope::info;
-use std::{convert::Infallible, process, task::Poll};
+use std::{convert::Infallible, process, sync::Arc, task::Poll};
+use tokio_rustls::{
+    rustls::{Certificate, PrivateKey, ServerConfig},
+    TlsAcceptor,
+};
 use tower::Service;
 
 use super::CliHarness;
@@ -40,30 +44,8 @@ pub enum ServiceCommands {
 
 impl CliHarness {
     pub async fn service_start(&self, config: conf::api::Config) {
-        let rest =
-            axum::Router::new().route("/*path", axum::routing::any(frontend::frontend_handler));
-        let grpc = api::Api::new(config.clone()).await.init_grpc_server();
-
-        let service = MultiplexService { rest, grpc };
-
-        let tls_config = RustlsConfig::from_pem(
-            config.server.tls_cert.clone().into_bytes(),
-            config.server.tls_key.clone().into_bytes(),
-        )
-        .await
-        .unwrap();
-
-        let tcp_settings = axum_server::AddrIncomingConfig::new()
-            .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
-            .build();
-
-        info!("Started grpc-web service"; "url" => &config.server.url.parse::<String>().unwrap());
-
-        axum_server::bind_rustls(config.server.url.parse().unwrap(), tls_config)
-            .addr_incoming_config(tcp_settings)
-            .serve(tower::make::Shared::new(service))
-            .await
-            .unwrap();
+        let api = api::Api::new(config).await;
+        api.start_service().await;
     }
 
     pub async fn service_info(&self) {
@@ -94,53 +76,5 @@ impl CliHarness {
         };
 
         println!("{:?}", response);
-    }
-}
-
-#[derive(Clone)]
-pub struct MultiplexService<A, B> {
-    pub rest: A,
-    pub grpc: B,
-}
-
-impl<A, B> Service<Request<Body>> for MultiplexService<A, B>
-where
-    A: Service<Request<Body>, Error = Infallible>,
-    A::Response: IntoResponse,
-    A::Future: Send + 'static,
-    B: Service<Request<Body>, Error = Infallible>,
-    B::Response: IntoResponse,
-    B::Future: Send + 'static,
-{
-    type Error = Infallible;
-    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
-    type Response = Response<BoxBody>;
-
-    // This seems incorrect. We never check GRPC readiness; but I'm too lazy
-    // to fix it and it seems to work well enough.
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        Poll::Ready(if let Err(err) = ready!(self.rest.poll_ready(cx)) {
-            Err(err)
-        } else {
-            ready!(self.rest.poll_ready(cx))
-        })
-    }
-
-    fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let hv = req.headers().get("content-type").map(|x| x.as_bytes());
-
-        let fut = if hv
-            .filter(|value| value.starts_with(b"application/grpc"))
-            .is_some()
-        {
-            Either::Left(self.grpc.call(req).map_ok(|res| res.into_response()))
-        } else {
-            Either::Right(self.rest.call(req).map_ok(|res| res.into_response()))
-        };
-
-        Box::pin(fut)
     }
 }
