@@ -8,9 +8,13 @@ use slog::o;
 use sloggers::terminal::{Destination, TerminalLoggerBuilder};
 use sloggers::types::Severity;
 use sloggers::Build;
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::{error::Error, str::FromStr};
+use std::{
+    error::Error,
+    str::FromStr,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use tonic::transport::channel::Channel;
+use url::Url;
 
 #[derive(Debug, Parser)]
 #[clap(name = "gofer")]
@@ -35,6 +39,24 @@ struct CliHarness {
     config: Config,
 }
 
+impl CliHarness {
+    async fn connect(&self) -> Result<GoferClient<Channel>, Box<dyn Error>> {
+        // TODO(clintjedwards): fix unwraps and ?
+        let parsed_url = Url::parse(&self.config.server).unwrap();
+        let domain_name = parsed_url.host_str().unwrap();
+
+        let mut conn =
+            tonic::transport::Channel::from_shared(self.config.server.to_string()).unwrap();
+
+        if !&self.config.dev_mode {
+            conn =
+                conn.tls_config(tonic::transport::ClientTlsConfig::new().domain_name(domain_name))?;
+        }
+
+        Ok(GoferClient::new(conn.connect().await?))
+    }
+}
+
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Manages service related commands pertaining to administration.
@@ -53,14 +75,6 @@ fn init_logging(severity: Severity) -> slog_scope::GlobalLoggerGuard {
     let log = slog::Logger::root(root_logger, o!());
 
     slog_scope::set_global_logger(log)
-}
-
-async fn connect(url: &str) -> Result<GoferClient<Channel>, Box<dyn Error>> {
-    let conn = tonic::transport::Channel::from_shared(url.to_string())?
-        .connect()
-        .await?;
-
-    Ok(GoferClient::new(conn))
 }
 
 /// Return the current epoch time

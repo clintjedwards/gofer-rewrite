@@ -3,22 +3,8 @@ use crate::conf;
 use crate::proto::gofer_client::GoferClient;
 use crate::proto::GetSystemInfoRequest;
 
-use axum::{body::BoxBody, response::IntoResponse};
-use axum_server::tls_rustls::RustlsConfig;
 use clap::{Args, Subcommand};
-use futures::{
-    future::{BoxFuture, Either},
-    ready, TryFutureExt,
-};
-use hyper::{Body, Request, Response};
-use serde::de::IntoDeserializer;
-use slog_scope::info;
-use std::{convert::Infallible, process, sync::Arc, task::Poll};
-use tokio_rustls::{
-    rustls::{Certificate, PrivateKey, ServerConfig},
-    TlsAcceptor,
-};
-use tower::Service;
+use std::process;
 
 use super::CliHarness;
 

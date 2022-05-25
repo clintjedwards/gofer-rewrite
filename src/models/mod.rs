@@ -8,6 +8,7 @@ pub enum ModelError {
     #[error("invalid parameter; {0}")]
     Invalid(String),
 
+    #[allow(dead_code)]
     #[error("unexpected storage error occurred; {0}")]
     Unknown(String),
 }

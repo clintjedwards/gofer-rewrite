@@ -13,18 +13,12 @@ use tonic::{Request, Response, Status};
 
 use axum::{body::BoxBody, response::IntoResponse};
 use axum_server::tls_rustls::RustlsConfig;
-use clap::{Args, Subcommand};
 use futures::{
     future::{BoxFuture, Either},
     ready, TryFutureExt,
 };
-use serde::de::IntoDeserializer;
-use std::io::BufReader;
-use std::{convert::Infallible, process, sync::Arc, task::Poll};
-use tokio_rustls::{
-    rustls::{Certificate, PrivateKey, ServerConfig},
-    TlsAcceptor,
-};
+use std::{convert::Infallible, io::BufReader, sync::Arc, task::Poll};
+use tokio_rustls::rustls::{Certificate, PrivateKey, ServerConfig};
 use tower::Service;
 
 const BUILD_SEMVER: &str = env!("BUILD_SEMVER");
@@ -188,6 +182,7 @@ impl Gofer for Api {
 }
 
 impl Api {
+    /// Create new API object. Subsequently you can run start_service to start the server.
     pub async fn new(conf: conf::api::Config) -> Self {
         let storage = storage::Db::new(&conf.server.storage_path).await.unwrap();
 
@@ -225,7 +220,14 @@ impl Api {
         }
     }
 
+    /// Start a TLS enabled, multiplexed, grpc/http server.
     pub async fn start_service(&self) {
+        //TODO(clintjedwards): Figure out how to multiplex and enable the use of services
+        // let reflection = Builder::configure()
+        //     .register_encoded_file_descriptor_set(tonic::include_file_descriptor_set!("reflection"))
+        //     .build()
+        //     .expect("could not build reflection server");
+
         let rest =
             axum::Router::new().route("/*path", axum::routing::any(frontend::frontend_handler));
         let grpc = GoferServer::new(self.clone());
@@ -235,70 +237,71 @@ impl Api {
         let cert = self.conf.server.tls_cert.clone().into_bytes();
         let key = self.conf.server.tls_key.clone().into_bytes();
 
-        let mut buffered_cert: BufReader<&[u8]> = BufReader::new(&cert);
-        let mut buffered_key: BufReader<&[u8]> = BufReader::new(&key);
+        if self.conf.general.dev_mode {
+            start_server(service, &self.conf.server.url).await;
+            return;
+        }
 
-        let certs = rustls_pemfile::certs(&mut buffered_cert)
-            .unwrap()
-            .into_iter()
-            .map(Certificate)
-            .collect();
-        let key = rustls_pemfile::pkcs8_private_keys(&mut buffered_key)
-            .unwrap()
-            .remove(0);
-        let key = PrivateKey(key);
-
-        let tls_config = ServerConfig::builder()
-            .with_safe_defaults()
-            .with_no_client_auth()
-            .with_single_cert(certs, key)
-            .expect("bad certificate/key");
-
-        let tls_config = RustlsConfig::from_config(Arc::new(tls_config));
-
-        let tcp_settings = axum_server::AddrIncomingConfig::new()
-            .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
-            .build();
-
-        info!("Started grpc-web service"; "url" => self.conf.server.url.parse::<String>().unwrap());
-
-        axum_server::bind_rustls(self.conf.server.url.parse().unwrap(), tls_config)
-            .addr_incoming_config(tcp_settings)
-            .serve(tower::make::Shared::new(service))
-            .await
-            .unwrap();
+        start_tls_server(service, &self.conf.server.url, cert, key).await;
     }
 }
 
-// // Load public certificate from file.
-// fn load_certs(filename: &str) -> io::Result<Vec<rustls::Certificate>> {
-//     // Open certificate file.
-//     let certfile = fs::File::open(filename)
-//         .map_err(|e| error(format!("failed to open {}: {}", filename, e)))?;
-//     let mut reader = io::BufReader::new(certfile);
+async fn start_server(service: MultiplexService<axum::Router, GoferServer<Api>>, host: &str) {
+    info!("Started multiplexed grpc/http service"; "url" => host.parse::<String>().unwrap());
 
-//     // Load and return certificate.
-//     let certs = rustls_pemfile::certs(&mut reader)
-//         .map_err(|_| error("failed to load certificate".into()))?;
-//     Ok(certs.into_iter().map(rustls::Certificate).collect())
-// }
+    axum::Server::bind(&host.parse().unwrap())
+        .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
+        .serve(tower::make::Shared::new(service))
+        .await
+        .expect("server exited unexpectedly");
+}
 
-// // Load private key from file.
-// fn load_private_key(filename: &str) -> io::Result<rustls::PrivateKey> {
-//     // Open keyfile.
-//     let keyfile = fs::File::open(filename)
-//         .map_err(|e| error(format!("failed to open {}: {}", filename, e)))?;
-//     let mut reader = io::BufReader::new(keyfile);
+async fn start_tls_server(
+    service: MultiplexService<axum::Router, GoferServer<Api>>,
+    host: &str,
+    cert: Vec<u8>,
+    key: Vec<u8>,
+) {
+    let tls_config = get_tls_config(cert, key);
 
-//     // Load and return a single private key.
-//     let keys = rustls_pemfile::rsa_private_keys(&mut reader)
-//         .map_err(|_| error("failed to load private key".into()))?;
-//     if keys.len() != 1 {
-//         return Err(error("expected a single private key".into()));
-//     }
+    let tcp_settings = axum_server::AddrIncomingConfig::new()
+        .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
+        .build();
 
-//     Ok(rustls::PrivateKey(keys[0].clone()))
-// }
+    info!("Started multiplexed, TLS enabled, grpc/http service"; "url" => host.parse::<String>().unwrap());
+
+    axum_server::bind_rustls(host.parse().unwrap(), tls_config)
+        .addr_incoming_config(tcp_settings)
+        .serve(tower::make::Shared::new(service))
+        .await
+        .expect("server exited unexpectedly");
+}
+
+/// returns a TLS configuration object for use in the multiplexing server.
+fn get_tls_config(cert: Vec<u8>, key: Vec<u8>) -> RustlsConfig {
+    let mut buffered_cert: BufReader<&[u8]> = BufReader::new(&cert);
+    let mut buffered_key: BufReader<&[u8]> = BufReader::new(&key);
+
+    let certs = rustls_pemfile::certs(&mut buffered_cert)
+        .expect("could not get certificate chain")
+        .into_iter()
+        .map(Certificate)
+        .collect();
+
+    let key = PrivateKey(
+        rustls_pemfile::pkcs8_private_keys(&mut buffered_key)
+            .expect("could not get private key")
+            .remove(0),
+    );
+
+    let tls_config = ServerConfig::builder()
+        .with_safe_defaults()
+        .with_no_client_auth()
+        .with_single_cert(certs, key)
+        .expect("could not load certificate or private key");
+
+    RustlsConfig::from_config(Arc::new(tls_config))
+}
 
 fn epoch() -> u64 {
     let current_epoch = SystemTime::now()

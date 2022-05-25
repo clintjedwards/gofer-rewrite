@@ -1,5 +1,5 @@
 use super::CliHarness;
-use crate::cli::{connect, humanize_duration};
+use crate::cli::humanize_duration;
 use crate::proto::{
     CreateNamespaceRequest, DeleteNamespaceRequest, GetNamespaceRequest, ListNamespacesRequest,
     UpdateNamespaceRequest,
@@ -54,10 +54,10 @@ pub enum NamespaceCommands {
 
 impl CliHarness {
     pub async fn namespace_list(&self) {
-        let mut client = match connect(&self.config.server).await {
+        let mut client = match self.connect().await {
             Ok(client) => client,
             Err(e) => {
-                eprintln!("Command failed; {}", e);
+                eprintln!("Command failed; {}", e.source().unwrap());
                 process::exit(1);
             }
         };
@@ -111,7 +111,7 @@ impl CliHarness {
         name: Option<String>,
         description: Option<String>,
     ) {
-        let mut client = match connect(&self.config.server).await {
+        let mut client = match self.connect().await {
             Ok(client) => client,
             Err(e) => {
                 eprintln!("Command failed; {}", e);
@@ -138,7 +138,7 @@ impl CliHarness {
     }
 
     pub async fn namespace_get(&self, id: &str) {
-        let mut client = match connect(&self.config.server).await {
+        let mut client = match self.connect().await {
             Ok(client) => client,
             Err(e) => {
                 eprintln!("Command failed; {}", e);
@@ -173,7 +173,7 @@ impl CliHarness {
         name: Option<String>,
         description: Option<String>,
     ) {
-        let mut client = match connect(&self.config.server).await {
+        let mut client = match self.connect().await {
             Ok(client) => client,
             Err(e) => {
                 eprintln!("Command failed; {}", e);
@@ -208,7 +208,7 @@ impl CliHarness {
         println!("Updated namespace '{}'", id);
     }
     pub async fn namespace_delete(&self, id: &str) {
-        let mut client = match connect(&self.config.server).await {
+        let mut client = match self.connect().await {
             Ok(client) => client,
             Err(e) => {
                 eprintln!("Command failed; {}", e);
