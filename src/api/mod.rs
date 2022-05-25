@@ -291,7 +291,9 @@ fn get_tls_config(cert: Vec<u8>, key: Vec<u8>) -> RustlsConfig {
     let key = PrivateKey(
         rustls_pemfile::pkcs8_private_keys(&mut buffered_key)
             .expect("could not get private key")
-            .remove(0),
+            .get(0)
+            .expect("could not get private key")
+            .to_vec(),
     );
 
     let tls_config = ServerConfig::builder()

@@ -96,7 +96,8 @@ impl Kind {
                 let config_src = config_src_builder
                     .add_source(
                         config::Environment::with_prefix("GOFER")
-                            .separator("_")
+                            .prefix_separator("_")
+                            .separator("__")
                             .ignore_empty(true),
                     )
                     .build()?;

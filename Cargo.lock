@@ -771,7 +771,6 @@ dependencies = [
  "tonic-reflection",
  "tower",
  "url",
- "webpki-roots 0.22.3",
 ]
 
 [[package]]
@@ -2116,7 +2115,7 @@ dependencies = [
  "tokio-stream",
  "url",
  "webpki 0.21.4",
- "webpki-roots 0.21.1",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -2822,15 +2821,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aabe153544e473b775453675851ecc86863d2a81d786d741f6b76778f2a48940"
 dependencies = [
  "webpki 0.21.4",
-]
-
-[[package]]
-name = "webpki-roots"
-version = "0.22.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44d8de8415c823c8abd270ad483c6feeac771fad964890779f9a8cb24fbbc1bf"
-dependencies = [
- "webpki 0.22.0",
 ]
 
 [[package]]
