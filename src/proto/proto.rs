@@ -27,6 +27,62 @@ pub struct Namespace {
     #[prost(uint64, tag="5")]
     pub modified: u64,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Pipeline {
+    #[prost(string, tag="1")]
+    pub namespace: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(uint64, tag="5")]
+    pub last_run_id: u64,
+    #[prost(uint64, tag="6")]
+    pub last_run_time: u64,
+    #[prost(uint64, tag="7")]
+    pub parallelism: u64,
+    #[prost(uint64, tag="8")]
+    pub created: u64,
+    #[prost(uint64, tag="9")]
+    pub modifed: u64,
+    #[prost(enumeration="PipelineState", tag="10")]
+    pub state: i32,
+    #[prost(map="string, message", tag="11")]
+    pub tasks: ::std::collections::HashMap<::prost::alloc::string::String, Task>,
+    #[prost(map="string, message", tag="12")]
+    pub triggers: ::std::collections::HashMap<::prost::alloc::string::String, PipelineTriggerSettings>,
+    #[prost(map="string, message", tag="13")]
+    pub notifiers: ::std::collections::HashMap<::prost::alloc::string::String, PipelineNotifierSettings>,
+    #[prost(string, repeated, tag="14")]
+    pub store_keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PipelineConfig {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub description: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Task {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PipelineTriggerSettings {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PipelineNotifierSettings {
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PipelineState {
+    Unknown = 0,
+    Active = 1,
+    Disabled = 2,
+}
 ////////////// System Transport Models //////////////
 
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -104,6 +160,103 @@ pub struct DeleteNamespaceRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeleteNamespaceResponse {
+}
+////////////// Pipeline Transport Models //////////////
+
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetPipelineRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    /// Unique identifier
+    #[prost(string, tag="2")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetPipelineResponse {
+    #[prost(message, optional, tag="1")]
+    pub pipeline: ::core::option::Option<Pipeline>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListPipelinesRequest {
+    /// offset is a pagination parameter that defines where to start when counting
+    /// the list of pipelines to return.
+    #[prost(int64, tag="1")]
+    pub offset: i64,
+    /// limit is a pagination parameter that defines how many pipelines to return
+    /// per result.
+    #[prost(int64, tag="2")]
+    pub limit: i64,
+    /// Unique namespace identifier
+    #[prost(string, tag="3")]
+    pub namespace_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListPipelinesResponse {
+    #[prost(message, repeated, tag="1")]
+    pub pipelines: ::prost::alloc::vec::Vec<Pipeline>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DisablePipelineRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    /// Unique namespace identifier
+    #[prost(string, tag="2")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DisablePipelineResponse {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EnablePipelineRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    /// Unique identifier
+    #[prost(string, tag="2")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EnablePipelineResponse {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreatePipelineRequest {
+    #[prost(message, optional, tag="1")]
+    pub pipeline_config: ::core::option::Option<PipelineConfig>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreatePipelineResponse {
+    #[prost(message, optional, tag="1")]
+    pub pipeline: ::core::option::Option<Pipeline>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdatePipelineRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    /// Unique identifier
+    #[prost(string, tag="2")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub pipeline_config: ::core::option::Option<PipelineConfig>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdatePipelineResponse {
+    #[prost(message, optional, tag="1")]
+    pub pipeline: ::core::option::Option<Pipeline>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeletePipelineRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    /// Pipeline ID
+    #[prost(string, tag="2")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeletePipelineResponse {
 }
 /// Generated client implementations.
 pub mod gofer_client {
@@ -287,6 +440,157 @@ pub mod gofer_client {
             );
             self.inner.unary(request.into_request(), path, codec).await
         }
+        /// GetPipeline returns a single pipeline by ID.
+        pub async fn get_pipeline(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetPipelineRequest>,
+        ) -> Result<tonic::Response<super::GetPipelineResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/GetPipeline");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// ListPipelines returns all registered pipelines. Can control pagination by
+        /// offset && limit request parameters.
+        /// By default ListPipelines will return the first 100 pipelines ordered by
+        /// creation.
+        pub async fn list_pipelines(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListPipelinesRequest>,
+        ) -> Result<tonic::Response<super::ListPipelinesResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/ListPipelines",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// EnablePipeline allows a pipeline to execute runs by allowing it to receive
+        /// trigger events. See DisablePipeline to prevent a pipeline from executing
+        /// any more runs.
+        pub async fn enable_pipeline(
+            &mut self,
+            request: impl tonic::IntoRequest<super::EnablePipelineRequest>,
+        ) -> Result<tonic::Response<super::EnablePipelineResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/EnablePipeline",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// DisablePipeline prevents the pipeline from executing runs. Any trigger
+        /// events that would normally cause the pipeline to be run are instead
+        /// discarded.
+        pub async fn disable_pipeline(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DisablePipelineRequest>,
+        ) -> Result<tonic::Response<super::DisablePipelineResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/DisablePipeline",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// CreatePipeline creates a new pipeline from the protobuf input. This is
+        /// usually autogenerated from the command line tool.
+        pub async fn create_pipeline(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreatePipelineRequest>,
+        ) -> Result<tonic::Response<super::CreatePipelineResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/CreatePipeline",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// UpdatePipeline updates a pipeline from the protobuf input. This input is
+        /// usually autogenerated from the command line tool.
+        /// Updating a pipeline requires the pipeline to adhere
+        /// to two constraints:
+        ///    1) The pipeline must not have any current runs in progress.
+        ///    2) The pipeline must be in a disabled state.
+        pub async fn update_pipeline(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdatePipelineRequest>,
+        ) -> Result<tonic::Response<super::UpdatePipelineResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/UpdatePipeline",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// DeletePipeline deletes a pipeline permenantly. It is not recoverable.
+        pub async fn delete_pipeline(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DeletePipelineRequest>,
+        ) -> Result<tonic::Response<super::DeletePipelineResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/DeletePipeline",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -326,6 +630,54 @@ pub mod gofer_server {
             &self,
             request: tonic::Request<super::DeleteNamespaceRequest>,
         ) -> Result<tonic::Response<super::DeleteNamespaceResponse>, tonic::Status>;
+        /// GetPipeline returns a single pipeline by ID.
+        async fn get_pipeline(
+            &self,
+            request: tonic::Request<super::GetPipelineRequest>,
+        ) -> Result<tonic::Response<super::GetPipelineResponse>, tonic::Status>;
+        /// ListPipelines returns all registered pipelines. Can control pagination by
+        /// offset && limit request parameters.
+        /// By default ListPipelines will return the first 100 pipelines ordered by
+        /// creation.
+        async fn list_pipelines(
+            &self,
+            request: tonic::Request<super::ListPipelinesRequest>,
+        ) -> Result<tonic::Response<super::ListPipelinesResponse>, tonic::Status>;
+        /// EnablePipeline allows a pipeline to execute runs by allowing it to receive
+        /// trigger events. See DisablePipeline to prevent a pipeline from executing
+        /// any more runs.
+        async fn enable_pipeline(
+            &self,
+            request: tonic::Request<super::EnablePipelineRequest>,
+        ) -> Result<tonic::Response<super::EnablePipelineResponse>, tonic::Status>;
+        /// DisablePipeline prevents the pipeline from executing runs. Any trigger
+        /// events that would normally cause the pipeline to be run are instead
+        /// discarded.
+        async fn disable_pipeline(
+            &self,
+            request: tonic::Request<super::DisablePipelineRequest>,
+        ) -> Result<tonic::Response<super::DisablePipelineResponse>, tonic::Status>;
+        /// CreatePipeline creates a new pipeline from the protobuf input. This is
+        /// usually autogenerated from the command line tool.
+        async fn create_pipeline(
+            &self,
+            request: tonic::Request<super::CreatePipelineRequest>,
+        ) -> Result<tonic::Response<super::CreatePipelineResponse>, tonic::Status>;
+        /// UpdatePipeline updates a pipeline from the protobuf input. This input is
+        /// usually autogenerated from the command line tool.
+        /// Updating a pipeline requires the pipeline to adhere
+        /// to two constraints:
+        ///    1) The pipeline must not have any current runs in progress.
+        ///    2) The pipeline must be in a disabled state.
+        async fn update_pipeline(
+            &self,
+            request: tonic::Request<super::UpdatePipelineRequest>,
+        ) -> Result<tonic::Response<super::UpdatePipelineResponse>, tonic::Status>;
+        /// DeletePipeline deletes a pipeline permenantly. It is not recoverable.
+        async fn delete_pipeline(
+            &self,
+            request: tonic::Request<super::DeletePipelineRequest>,
+        ) -> Result<tonic::Response<super::DeletePipelineResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct GoferServer<T: Gofer> {
@@ -603,6 +955,284 @@ pub mod gofer_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = DeleteNamespaceSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/GetPipeline" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetPipelineSvc<T: Gofer>(pub Arc<T>);
+                    impl<T: Gofer> tonic::server::UnaryService<super::GetPipelineRequest>
+                    for GetPipelineSvc<T> {
+                        type Response = super::GetPipelineResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetPipelineRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).get_pipeline(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetPipelineSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/ListPipelines" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListPipelinesSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::ListPipelinesRequest>
+                    for ListPipelinesSvc<T> {
+                        type Response = super::ListPipelinesResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListPipelinesRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).list_pipelines(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = ListPipelinesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/EnablePipeline" => {
+                    #[allow(non_camel_case_types)]
+                    struct EnablePipelineSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::EnablePipelineRequest>
+                    for EnablePipelineSvc<T> {
+                        type Response = super::EnablePipelineResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::EnablePipelineRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).enable_pipeline(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = EnablePipelineSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/DisablePipeline" => {
+                    #[allow(non_camel_case_types)]
+                    struct DisablePipelineSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::DisablePipelineRequest>
+                    for DisablePipelineSvc<T> {
+                        type Response = super::DisablePipelineResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DisablePipelineRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).disable_pipeline(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = DisablePipelineSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/CreatePipeline" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreatePipelineSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::CreatePipelineRequest>
+                    for CreatePipelineSvc<T> {
+                        type Response = super::CreatePipelineResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreatePipelineRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).create_pipeline(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = CreatePipelineSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/UpdatePipeline" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdatePipelineSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::UpdatePipelineRequest>
+                    for UpdatePipelineSvc<T> {
+                        type Response = super::UpdatePipelineResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdatePipelineRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).update_pipeline(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = UpdatePipelineSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/DeletePipeline" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeletePipelineSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::DeletePipelineRequest>
+                    for DeletePipelineSvc<T> {
+                        type Response = super::DeletePipelineResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeletePipelineRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).delete_pipeline(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = DeletePipelineSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

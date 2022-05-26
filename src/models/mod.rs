@@ -1,3 +1,11 @@
+mod namespace;
+mod pipeline;
+mod task;
+
+pub use self::namespace::*;
+pub use self::pipeline::*;
+pub use self::task::*;
+
 use lazy_regex::regex;
 use std::convert::TryFrom;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -7,6 +15,9 @@ use thiserror::Error;
 pub enum ModelError {
     #[error("invalid parameter; {0}")]
     Invalid(String),
+
+    #[error("could not find equivalent variant for string {0}")]
+    EnumMismatch(String),
 
     #[allow(dead_code)]
     #[error("unexpected storage error occurred; {0}")]
@@ -40,36 +51,6 @@ fn validate_id(id: &str) -> Result<(), ModelError> {
     }
 
     Ok(())
-}
-
-/// Represents a division of pipelines. Normally it is used to divide teams or logically different
-/// sections of workloads. This is the highest level unit.
-#[derive(sqlx::FromRow, Default, Debug, Clone)]
-pub struct Namespace {
-    /// Unique user defined identifier.
-    pub id: String,
-    /// Humanized name; great for reading from UIs.
-    pub name: String,
-    /// Short description of what namespace is used for.
-    pub description: String,
-    /// The creation time in epoch milli.
-    pub created: u64,
-    /// The last modified time in epoch milli.
-    pub modified: u64,
-}
-
-impl Namespace {
-    pub fn new(id: &str, name: &str, description: &str) -> Result<Self, ModelError> {
-        validate_id(id)?;
-
-        Ok(Namespace {
-            id: id.to_string(),
-            name: name.to_string(),
-            description: description.to_string(),
-            created: epoch(),
-            modified: epoch(),
-        })
-    }
 }
 
 fn epoch() -> u64 {

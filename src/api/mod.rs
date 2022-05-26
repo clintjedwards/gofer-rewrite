@@ -7,6 +7,7 @@ use crate::proto::{
 };
 use crate::storage;
 use crate::{conf, storage::StorageError};
+
 use slog_scope::info;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tonic::{Request, Response, Status};
@@ -222,12 +223,6 @@ impl Api {
 
     /// Start a TLS enabled, multiplexed, grpc/http server.
     pub async fn start_service(&self) {
-        //TODO(clintjedwards): Figure out how to multiplex and enable the use of services
-        // let reflection = Builder::configure()
-        //     .register_encoded_file_descriptor_set(tonic::include_file_descriptor_set!("reflection"))
-        //     .build()
-        //     .expect("could not build reflection server");
-
         let rest =
             axum::Router::new().route("/*path", axum::routing::any(frontend::frontend_handler));
         let grpc = GoferServer::new(self.clone());

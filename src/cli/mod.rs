@@ -41,7 +41,6 @@ struct CliHarness {
 
 impl CliHarness {
     async fn connect(&self) -> Result<GoferClient<Channel>, Box<dyn Error>> {
-        // TODO(clintjedwards): fix unwraps and ?
         let parsed_url = Url::parse(&self.config.server).unwrap();
         let domain_name = parsed_url.host_str().unwrap();
 

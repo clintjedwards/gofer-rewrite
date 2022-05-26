@@ -52,3 +52,53 @@ message DeleteNamespaceRequest {
   string id = 1; // Unique identifier
 }
 message DeleteNamespaceResponse {}
+
+////////////// Pipeline Transport Models //////////////
+
+message GetPipelineRequest {
+  string namespace_id = 1; // Unique namespace identifier
+  string id = 2;           // Unique identifier
+}
+message GetPipelineResponse { Pipeline pipeline = 1; }
+
+message ListPipelinesRequest {
+  // offset is a pagination parameter that defines where to start when counting
+  // the list of pipelines to return.
+  int64 offset = 1;
+
+  // limit is a pagination parameter that defines how many pipelines to return
+  // per result.
+  int64 limit = 2;
+  string namespace_id = 3; // Unique namespace identifier
+}
+message ListPipelinesResponse { repeated Pipeline pipelines = 1; }
+
+message DisablePipelineRequest {
+  string namespace_id = 1; // Unique namespace identifier
+  string id = 2;           // Unique namespace identifier
+}
+message DisablePipelineResponse {}
+
+message EnablePipelineRequest {
+  string namespace_id = 1; // Unique namespace identifier
+  string id = 2;           // Unique identifier
+}
+message EnablePipelineResponse {}
+
+message CreatePipelineRequest { PipelineConfig pipeline_config = 1; }
+message CreatePipelineResponse { Pipeline pipeline = 1; }
+
+message UpdatePipelineRequest {
+  string namespace_id = 1; // Unique namespace identifier
+
+  string id = 2; // Unique identifier
+
+  PipelineConfig pipeline_config = 3;
+}
+message UpdatePipelineResponse { Pipeline pipeline = 1; }
+
+message DeletePipelineRequest {
+  string namespace_id = 1; // Unique namespace identifier
+  string id = 2;           // Pipeline ID
+}
+message DeletePipelineResponse {}

@@ -1,4 +1,5 @@
 mod namespaces;
+mod pipelines;
 
 use sqlx::{migrate, Pool, Sqlite, SqlitePool};
 use std::{error::Error, fmt, fs::File, io, path::Path};
