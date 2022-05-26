@@ -1,6 +1,9 @@
+use crate::proto;
+
 #[derive(Debug, Clone)]
 pub struct Task {}
-#[derive(Debug, Clone)]
-pub struct PipelineTriggerSettings {}
-#[derive(Debug, Clone)]
-pub struct PipelineNotifierSettings {}
+impl From<proto::Task> for Task {
+    fn from(ns: proto::Task) -> Self {
+        Task {}
+    }
+}

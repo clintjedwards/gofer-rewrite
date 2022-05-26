@@ -1,4 +1,5 @@
-use crate::models::{epoch, validate_id, ModelError};
+use crate::models::epoch;
+use crate::proto;
 
 /// Represents a division of pipelines. Normally it is used to divide teams or logically different
 /// sections of workloads. This is the highest level unit.
@@ -17,15 +18,37 @@ pub struct Namespace {
 }
 
 impl Namespace {
-    pub fn new(id: &str, name: &str, description: &str) -> Result<Self, ModelError> {
-        validate_id(id)?;
-
-        Ok(Namespace {
+    pub fn new(id: &str, name: &str, description: &str) -> Self {
+        Namespace {
             id: id.to_string(),
             name: name.to_string(),
             description: description.to_string(),
             created: epoch(),
             modified: epoch(),
-        })
+        }
+    }
+}
+
+impl From<Namespace> for proto::Namespace {
+    fn from(ns: Namespace) -> Self {
+        proto::Namespace {
+            id: ns.id,
+            name: ns.name,
+            description: ns.description,
+            created: ns.created,
+            modified: ns.modified,
+        }
+    }
+}
+
+impl From<proto::Namespace> for Namespace {
+    fn from(ns: proto::Namespace) -> Self {
+        Namespace {
+            id: ns.id,
+            name: ns.name,
+            description: ns.description,
+            created: ns.created,
+            modified: ns.modified,
+        }
     }
 }

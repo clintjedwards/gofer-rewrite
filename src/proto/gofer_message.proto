@@ -55,6 +55,10 @@ message PipelineConfig {
   string id = 1;
   string name = 2;
   string description = 3;
+  uint64 parallelism = 4;
+  map<string, Task> tasks = 5;
+  map<string, PipelineTriggerSettings> triggers = 6;
+  map<string, PipelineNotifierSettings> notifiers = 7;
 }
 
 message Task {}

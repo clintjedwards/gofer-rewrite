@@ -66,6 +66,14 @@ pub struct PipelineConfig {
     pub name: ::prost::alloc::string::String,
     #[prost(string, tag="3")]
     pub description: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
+    pub parallelism: u64,
+    #[prost(map="string, message", tag="5")]
+    pub tasks: ::std::collections::HashMap<::prost::alloc::string::String, Task>,
+    #[prost(map="string, message", tag="6")]
+    pub triggers: ::std::collections::HashMap<::prost::alloc::string::String, PipelineTriggerSettings>,
+    #[prost(map="string, message", tag="7")]
+    pub notifiers: ::std::collections::HashMap<::prost::alloc::string::String, PipelineNotifierSettings>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Task {
@@ -222,7 +230,10 @@ pub struct EnablePipelineResponse {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreatePipelineRequest {
-    #[prost(message, optional, tag="1")]
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
     pub pipeline_config: ::core::option::Option<PipelineConfig>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -235,10 +246,7 @@ pub struct UpdatePipelineRequest {
     /// Unique namespace identifier
     #[prost(string, tag="1")]
     pub namespace_id: ::prost::alloc::string::String,
-    /// Unique identifier
-    #[prost(string, tag="2")]
-    pub id: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="3")]
+    #[prost(message, optional, tag="2")]
     pub pipeline_config: ::core::option::Option<PipelineConfig>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

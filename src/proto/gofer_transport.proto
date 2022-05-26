@@ -85,15 +85,15 @@ message EnablePipelineRequest {
 }
 message EnablePipelineResponse {}
 
-message CreatePipelineRequest { PipelineConfig pipeline_config = 1; }
+message CreatePipelineRequest {
+  string namespace_id = 1; // Unique namespace identifier
+  PipelineConfig pipeline_config = 2;
+}
 message CreatePipelineResponse { Pipeline pipeline = 1; }
 
 message UpdatePipelineRequest {
   string namespace_id = 1; // Unique namespace identifier
-
-  string id = 2; // Unique identifier
-
-  PipelineConfig pipeline_config = 3;
+  PipelineConfig pipeline_config = 2;
 }
 message UpdatePipelineResponse { Pipeline pipeline = 1; }
 
