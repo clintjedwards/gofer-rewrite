@@ -1,9 +1,11 @@
 use crate::models::{epoch, Task};
 use crate::proto;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::{Display, EnumString};
 
 /// The current state of the pipeline. Pipelines can be disabled to stop execution.
-#[derive(Debug)]
+#[derive(Debug, Display, EnumString, Serialize, Deserialize)]
 pub enum PipelineState {
     /// The state of the pipeline is unknown. This should never happen.
     #[allow(dead_code)]
@@ -15,18 +17,28 @@ pub enum PipelineState {
     Disabled,
 }
 
-impl From<proto::PipelineState> for PipelineState {
-    fn from(p: proto::PipelineState) -> Self {
+impl From<proto::pipeline::PipelineState> for PipelineState {
+    fn from(p: proto::pipeline::PipelineState) -> Self {
         match p {
-            proto::PipelineState::Unknown => PipelineState::Unknown,
-            proto::PipelineState::Active => PipelineState::Active,
-            proto::PipelineState::Disabled => PipelineState::Disabled,
+            proto::pipeline::PipelineState::Unknown => PipelineState::Unknown,
+            proto::pipeline::PipelineState::Active => PipelineState::Active,
+            proto::pipeline::PipelineState::Disabled => PipelineState::Disabled,
+        }
+    }
+}
+
+impl From<PipelineState> for proto::pipeline::PipelineState {
+    fn from(p: PipelineState) -> Self {
+        match p {
+            PipelineState::Unknown => proto::pipeline::PipelineState::Unknown,
+            PipelineState::Active => proto::pipeline::PipelineState::Active,
+            PipelineState::Disabled => proto::pipeline::PipelineState::Disabled,
         }
     }
 }
 
 /// A collection of logically grouped tasks. A task is a unit of work wrapped in a docker container.
-/// Pipeline is a secondary level unit being contained within namespaces and containing tasks.
+/// Pipeline is a secondary level unit being contained within namespaces and containing runs.
 #[derive(Debug)]
 pub struct Pipeline {
     /// Unique identifier for the namespace that this pipeline belongs to.
@@ -82,6 +94,39 @@ impl Pipeline {
     }
 }
 
+impl From<Pipeline> for proto::Pipeline {
+    fn from(p: Pipeline) -> Self {
+        proto::Pipeline {
+            namespace: p.namespace,
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            last_run_id: p.last_run_id,
+            last_run_time: p.last_run_time,
+            parallelism: p.parallelism,
+            created: p.created,
+            modified: p.modified,
+            state: proto::pipeline::PipelineState::from(p.state) as i32,
+            tasks: p
+                .tasks
+                .into_iter()
+                .map(|(key, value)| (key, value.into()))
+                .collect(),
+            triggers: p
+                .triggers
+                .into_iter()
+                .map(|(key, value)| (key, value.into()))
+                .collect(),
+            notifiers: p
+                .notifiers
+                .into_iter()
+                .map(|(key, value)| (key, value.into()))
+                .collect(),
+            store_keys: p.store_keys,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct PipelineConfig {
     /// Unique user defined identifier.
@@ -126,20 +171,94 @@ impl From<proto::PipelineConfig> for PipelineConfig {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct PipelineTriggerSettings {}
+/// Every time a pipeline attempts to subscribe to a trigger, it passes certain
+/// values back to that trigger for certain functionality. Since triggers keep no
+/// permanent state, these settings are kept here so that when triggers are restarted
+/// they can be restored with proper settings.
+#[derive(Debug)]
+pub struct PipelineTriggerSettings {
+    /// A global unique identifier for the trigger type.
+    pub kind: String,
+    /// A user defined identifier for the trigger so that a pipeline with
+    /// multiple notifiers can be differentiated.
+    pub label: String,
+    /// The settings for pertaining to that specific trigger.
+    pub settings: HashMap<String, String>,
+    /// If the trigger could not be set up for the pipeline we return an error on why that might be.
+    pub error: Option<String>,
+}
 
 impl From<proto::PipelineTriggerSettings> for PipelineTriggerSettings {
-    fn from(ns: proto::PipelineTriggerSettings) -> Self {
-        PipelineTriggerSettings {}
+    fn from(p: proto::PipelineTriggerSettings) -> Self {
+        PipelineTriggerSettings {
+            kind: p.kind,
+            label: p.label,
+            settings: p.settings,
+            error: {
+                if p.error.is_empty() {
+                    None
+                } else {
+                    Some(p.error)
+                }
+            },
+        }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct PipelineNotifierSettings {}
+impl From<PipelineTriggerSettings> for proto::PipelineTriggerSettings {
+    fn from(p: PipelineTriggerSettings) -> Self {
+        proto::PipelineTriggerSettings {
+            kind: p.kind,
+            label: p.label,
+            settings: p.settings,
+            error: match p.error {
+                Some(error) => error,
+                None => "".to_string(),
+            },
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PipelineNotifierSettings {
+    /// A global unique identifier for the notifier type.
+    pub kind: String,
+    /// A user defined identifier for the notifier so that a pipeline with
+    /// multiple notifiers can be differentiated.
+    pub label: String,
+    /// The settings for pertaining to that specific notifier.
+    pub settings: HashMap<String, String>,
+    /// If the notifier could not be set up for the pipeline we return an error on why that might be.
+    pub error: Option<String>,
+}
 
 impl From<proto::PipelineNotifierSettings> for PipelineNotifierSettings {
-    fn from(ns: proto::PipelineNotifierSettings) -> Self {
-        PipelineNotifierSettings {}
+    fn from(p: proto::PipelineNotifierSettings) -> Self {
+        PipelineNotifierSettings {
+            kind: p.kind,
+            label: p.label,
+            settings: p.settings,
+            error: {
+                if p.error.is_empty() {
+                    None
+                } else {
+                    Some(p.error)
+                }
+            },
+        }
+    }
+}
+
+impl From<PipelineNotifierSettings> for proto::PipelineNotifierSettings {
+    fn from(p: PipelineNotifierSettings) -> Self {
+        proto::PipelineNotifierSettings {
+            kind: p.kind,
+            label: p.label,
+            settings: p.settings,
+            error: match p.error {
+                Some(error) => error,
+                None => "".to_string(),
+            },
+        }
     }
 }

@@ -1,3 +1,6 @@
+mod service;
+mod validate;
+
 use crate::frontend;
 use crate::models;
 use crate::proto;
@@ -10,20 +13,29 @@ use crate::{conf, storage::StorageError};
 
 use slog_scope::info;
 use std::time::{SystemTime, UNIX_EPOCH};
+use thiserror::Error;
 use tonic::{Request, Response, Status};
-
-use axum::{body::BoxBody, response::IntoResponse};
-use axum_server::tls_rustls::RustlsConfig;
-use futures::{
-    future::{BoxFuture, Either},
-    ready, TryFutureExt,
-};
-use std::{convert::Infallible, io::BufReader, sync::Arc, task::Poll};
-use tokio_rustls::rustls::{Certificate, PrivateKey, ServerConfig};
-use tower::Service;
 
 const BUILD_SEMVER: &str = env!("BUILD_SEMVER");
 const BUILD_COMMIT: &str = env!("BUILD_COMMIT");
+
+#[derive(Error, Debug)]
+pub enum ApiError {
+    #[error("could not successfully validate arguments; {0}")]
+    InvalidArguments(String),
+
+    #[error("unexpected storage error occurred; {0}")]
+    Unknown(String),
+}
+
+fn epoch() -> u64 {
+    let current_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+    u64::try_from(current_epoch).unwrap()
+}
 
 #[derive(Clone)]
 pub struct Api {
@@ -50,10 +62,7 @@ impl Gofer for Api {
     ) -> Result<Response<ListNamespacesResponse>, Status> {
         let args = &request.into_inner();
 
-        let result = self
-            .storage
-            .list_namespaces(args.offset, args.limit as u8)
-            .await;
+        let result = self.storage.list_namespaces(args.offset, args.limit).await;
 
         match result {
             Ok(namespaces_raw) => {
@@ -72,12 +81,12 @@ impl Gofer for Api {
         request: Request<CreateNamespaceRequest>,
     ) -> Result<Response<CreateNamespaceResponse>, Status> {
         let args = &request.into_inner();
-        let new_namespace = match models::Namespace::new(&args.id, &args.name, &args.description) {
-            Ok(namespace) => namespace,
-            Err(e) => {
-                return Err(Status::failed_precondition(e.to_string()));
-            }
-        };
+
+        if let Err(e) = validate::identifier(&args.id) {
+            return Err(Status::failed_precondition(e.to_string()));
+        }
+
+        let new_namespace = models::Namespace::new(&args.id, &args.name, &args.description);
 
         let result = self.storage.create_namespace(&new_namespace).await;
         match result {
@@ -180,6 +189,149 @@ impl Gofer for Api {
         info!("Deleted namespace"; "id" => &args.id);
         Ok(Response::new(DeleteNamespaceResponse {}))
     }
+
+    async fn list_pipelines(
+        &self,
+        request: Request<ListPipelinesRequest>,
+    ) -> Result<Response<ListPipelinesResponse>, Status> {
+        let args = &request.into_inner();
+
+        let result = self
+            .storage
+            .list_pipelines(args.offset as u64, args.limit as u64, args.namespace_id)
+            .await;
+
+        match result {
+            Ok(pipelines_raw) => {
+                let pipelines = pipelines_raw
+                    .into_iter()
+                    .map(proto::Pipeline::from)
+                    .collect();
+                return Ok(Response::new(ListPipelinesResponse { pipelines }));
+            }
+            Err(storage_err) => return Err(Status::internal(storage_err.to_string())),
+        }
+    }
+
+    async fn create_pipeline(
+        &self,
+        request: Request<CreatePipelineRequest>,
+    ) -> Result<Response<CreatePipelineResponse>, Status> {
+        let args = &request.into_inner();
+
+        let pipeline_config = match &args.pipeline_config {
+            Some(config) => config,
+            None => {
+                return Err(Status::failed_precondition(
+                    "must include valid pipeline config",
+                ));
+            }
+        };
+
+        let new_pipeline =
+            models::Pipeline::new(args.namespace_id, pipeline_config.to_owned().into());
+
+        let result = self.storage.create_pipeline(&new_pipeline).await;
+        match result {
+            Ok(_) => (),
+            Err(e) => match e {
+                storage::StorageError::Exists => {
+                    return Err(Status::already_exists(format!(
+                        "pipeline with id '{}' already exists",
+                        new_pipeline.id
+                    )))
+                }
+                _ => return Err(Status::internal(e.to_string())),
+            },
+        };
+
+        info!("Created new pipeline"; "pipeline" => format!("{:?}", new_pipeline));
+        Ok(Response::new(CreatePipelineResponse {
+            pipeline: Some(new_pipeline.into()),
+        }))
+    }
+
+    async fn get_pipeline(
+        &self,
+        request: Request<GetPipelineRequest>,
+    ) -> Result<Response<GetPipelineResponse>, Status> {
+        let args = &request.into_inner();
+
+        let result = self.storage.get_pipeline(&args.id).await;
+        let pipeline = match result {
+            Ok(pipeline) => pipeline,
+            Err(e) => match e {
+                storage::StorageError::NotFound => {
+                    return Err(Status::not_found(format!(
+                        "pipeline with id '{}' does not exist",
+                        &args.id
+                    )))
+                }
+                _ => return Err(Status::internal(e.to_string())),
+            },
+        };
+
+        Ok(Response::new(GetPipelineResponse {
+            pipeline: Some(pipeline.into()),
+        }))
+    }
+
+    async fn update_pipeline(
+        &self,
+        request: Request<UpdatePipelineRequest>,
+    ) -> Result<Response<UpdatePipelineResponse>, Status> {
+        let args = &request.into_inner();
+
+        let result = self
+            .storage
+            .update_pipeline(&models::Pipeline {
+                id: args.id.clone(),
+                name: args.name.clone(),
+                description: args.description.clone(),
+                created: 0,
+                modified: epoch(),
+            })
+            .await;
+
+        match result {
+            Ok(_) => (),
+            Err(e) => match e {
+                storage::StorageError::NotFound => {
+                    return Err(Status::not_found(format!(
+                        "pipeline with id '{}' does not exist",
+                        &args.id
+                    )))
+                }
+                _ => return Err(Status::internal(e.to_string())),
+            },
+        };
+
+        Ok(Response::new(UpdatePipelineResponse {}))
+    }
+
+    async fn delete_pipeline(
+        &self,
+        request: Request<DeletePipelineRequest>,
+    ) -> Result<Response<DeletePipelineResponse>, Status> {
+        let args = &request.into_inner();
+
+        let result = self.storage.delete_pipeline(&args.id).await;
+        match result {
+            Ok(_) => (),
+            Err(e) => match e {
+                storage::StorageError::NotFound => {
+                    return Err(Status::not_found(format!(
+                        "pipeline with id '{}' does not exist",
+                        &args.id
+                    )))
+                }
+                _ => return Err(Status::internal(e.to_string())),
+            },
+        };
+
+        info!("Deleted pipeline"; "id" => &args.id);
+        Ok(Response::new(DeletePipelineResponse {}))
+    }
 }
 
 impl Api {
@@ -201,16 +353,11 @@ impl Api {
         const DEFAULT_NAMESPACE_DESCRIPTION: &str =
             "The default namespace when no other namespace is specified.";
 
-        let default_namespace = match models::Namespace::new(
+        let default_namespace = models::Namespace::new(
             DEFAULT_NAMESPACE_ID,
             DEFAULT_NAMESPACE_NAME,
             DEFAULT_NAMESPACE_DESCRIPTION,
-        ) {
-            Ok(namespace) => namespace,
-            Err(e) => {
-                return Err(storage::StorageError::Unknown(e.to_string()));
-            }
-        };
+        );
 
         match self.storage.create_namespace(&default_namespace).await {
             Ok(_) => Ok(()),
@@ -227,132 +374,16 @@ impl Api {
             axum::Router::new().route("/*path", axum::routing::any(frontend::frontend_handler));
         let grpc = GoferServer::new(self.clone());
 
-        let service = MultiplexService { rest, grpc };
+        let service = service::MultiplexService { rest, grpc };
 
         let cert = self.conf.server.tls_cert.clone().into_bytes();
         let key = self.conf.server.tls_key.clone().into_bytes();
 
         if self.conf.general.dev_mode {
-            start_server(service, &self.conf.server.url).await;
+            service::start_server(service, &self.conf.server.url).await;
             return;
         }
 
-        start_tls_server(service, &self.conf.server.url, cert, key).await;
-    }
-}
-
-async fn start_server(service: MultiplexService<axum::Router, GoferServer<Api>>, host: &str) {
-    info!("Started multiplexed grpc/http service"; "url" => host.parse::<String>().unwrap());
-
-    axum::Server::bind(&host.parse().unwrap())
-        .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
-        .serve(tower::make::Shared::new(service))
-        .await
-        .expect("server exited unexpectedly");
-}
-
-async fn start_tls_server(
-    service: MultiplexService<axum::Router, GoferServer<Api>>,
-    host: &str,
-    cert: Vec<u8>,
-    key: Vec<u8>,
-) {
-    let tls_config = get_tls_config(cert, key);
-
-    let tcp_settings = axum_server::AddrIncomingConfig::new()
-        .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
-        .build();
-
-    info!("Started multiplexed, TLS enabled, grpc/http service"; "url" => host.parse::<String>().unwrap());
-
-    axum_server::bind_rustls(host.parse().unwrap(), tls_config)
-        .addr_incoming_config(tcp_settings)
-        .serve(tower::make::Shared::new(service))
-        .await
-        .expect("server exited unexpectedly");
-}
-
-/// returns a TLS configuration object for use in the multiplexing server.
-fn get_tls_config(cert: Vec<u8>, key: Vec<u8>) -> RustlsConfig {
-    let mut buffered_cert: BufReader<&[u8]> = BufReader::new(&cert);
-    let mut buffered_key: BufReader<&[u8]> = BufReader::new(&key);
-
-    let certs = rustls_pemfile::certs(&mut buffered_cert)
-        .expect("could not get certificate chain")
-        .into_iter()
-        .map(Certificate)
-        .collect();
-
-    let key = PrivateKey(
-        rustls_pemfile::pkcs8_private_keys(&mut buffered_key)
-            .expect("could not get private key")
-            .get(0)
-            .expect("could not get private key")
-            .to_vec(),
-    );
-
-    let tls_config = ServerConfig::builder()
-        .with_safe_defaults()
-        .with_no_client_auth()
-        .with_single_cert(certs, key)
-        .expect("could not load certificate or private key");
-
-    RustlsConfig::from_config(Arc::new(tls_config))
-}
-
-fn epoch() -> u64 {
-    let current_epoch = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-
-    u64::try_from(current_epoch).unwrap()
-}
-
-#[derive(Clone)]
-pub struct MultiplexService<A, B> {
-    pub rest: A,
-    pub grpc: B,
-}
-
-impl<A, B> Service<hyper::Request<hyper::Body>> for MultiplexService<A, B>
-where
-    A: Service<hyper::Request<hyper::Body>, Error = Infallible>,
-    A::Response: IntoResponse,
-    A::Future: Send + 'static,
-    B: Service<hyper::Request<hyper::Body>, Error = Infallible>,
-    B::Response: IntoResponse,
-    B::Future: Send + 'static,
-{
-    type Error = Infallible;
-    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
-    type Response = hyper::Response<BoxBody>;
-
-    // This seems incorrect. We never check GRPC readiness; but I'm too lazy
-    // to fix it and it seems to work well enough.
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        Poll::Ready(if let Err(err) = ready!(self.rest.poll_ready(cx)) {
-            Err(err)
-        } else {
-            ready!(self.rest.poll_ready(cx))
-        })
-    }
-
-    fn call(&mut self, req: hyper::Request<hyper::Body>) -> Self::Future {
-        let hv = req.headers().get("content-type").map(|x| x.as_bytes());
-
-        let fut = if hv
-            .filter(|value| value.starts_with(b"application/grpc"))
-            .is_some()
-        {
-            Either::Left(self.grpc.call(req).map_ok(|res| res.into_response()))
-        } else {
-            Either::Right(self.rest.call(req).map_ok(|res| res.into_response()))
-        };
-
-        Box::pin(fut)
+        service::start_tls_server(service, &self.conf.server.url, cert, key).await;
     }
 }

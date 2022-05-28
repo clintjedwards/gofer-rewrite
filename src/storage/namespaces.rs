@@ -10,7 +10,7 @@ impl Db {
     pub async fn list_namespaces(
         &self,
         offset: u64,
-        limit: u8,
+        limit: u64,
     ) -> Result<Vec<Namespace>, StorageError> {
         let mut conn = self
             .pool
@@ -33,7 +33,7 @@ impl Db {
         OFFSET ?;
             "#,
         )
-        .bind(limit)
+        .bind(limit as i64)
         .bind(offset as i64)
         .map(|row: SqliteRow| Namespace {
             id: row.get("id"),

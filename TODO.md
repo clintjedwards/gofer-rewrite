@@ -5,3 +5,7 @@
 - Reflection doesn't work.
 - Move validators of the models in the new fn to the api. THe api can do much better at validating that things
   are correct.
+- Implement object store
+- Refactor storage into smaller functions
+- To prevent issues when a trigger container is being restarted, it needs to somehow communicate it is brand new
+  and ready to reload pipeline settings.

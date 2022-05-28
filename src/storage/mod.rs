@@ -6,7 +6,7 @@ use std::{error::Error, fmt, fs::File, io, path::Path};
 use thiserror::Error;
 
 /// The maximum amount of rows that can be returned by any single query.
-const MAX_ROW_LIMIT: u8 = 200;
+const MAX_ROW_LIMIT: u64 = 200;
 
 #[derive(Error, Debug)]
 pub enum StorageError {
@@ -15,6 +15,13 @@ pub enum StorageError {
 
     #[error("entity already exists")]
     Exists,
+
+    #[error("could not parse value '{value}' for column '{column}' from database; {err}")]
+    Parse {
+        value: String,
+        column: String,
+        err: String,
+    },
 
     #[error("unexpected storage error occurred; {0}")]
     Unknown(String),

@@ -28,6 +28,15 @@ pub struct Namespace {
     pub modified: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Variable {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+    #[prost(enumeration="VariableOwner", tag="3")]
+    pub owner: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Pipeline {
     #[prost(string, tag="1")]
     pub namespace: ::prost::alloc::string::String,
@@ -46,8 +55,8 @@ pub struct Pipeline {
     #[prost(uint64, tag="8")]
     pub created: u64,
     #[prost(uint64, tag="9")]
-    pub modifed: u64,
-    #[prost(enumeration="PipelineState", tag="10")]
+    pub modified: u64,
+    #[prost(enumeration="pipeline::PipelineState", tag="10")]
     pub state: i32,
     #[prost(map="string, message", tag="11")]
     pub tasks: ::std::collections::HashMap<::prost::alloc::string::String, Task>,
@@ -57,6 +66,16 @@ pub struct Pipeline {
     pub notifiers: ::std::collections::HashMap<::prost::alloc::string::String, PipelineNotifierSettings>,
     #[prost(string, repeated, tag="14")]
     pub store_keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// Nested message and enum types in `Pipeline`.
+pub mod pipeline {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum PipelineState {
+        Unknown = 0,
+        Active = 1,
+        Disabled = 2,
+    }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PipelineConfig {
@@ -76,20 +95,159 @@ pub struct PipelineConfig {
     pub notifiers: ::std::collections::HashMap<::prost::alloc::string::String, PipelineNotifierSettings>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Run {
+    #[prost(string, tag="1")]
+    pub namespace: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub id: u64,
+    #[prost(uint64, tag="4")]
+    pub started: u64,
+    #[prost(uint64, tag="5")]
+    pub ended: u64,
+    #[prost(enumeration="run::RunState", tag="6")]
+    pub state: i32,
+    #[prost(enumeration="run::RunStatus", tag="7")]
+    pub status: i32,
+    #[prost(message, optional, tag="8")]
+    pub failure_info: ::core::option::Option<RunFailureInfo>,
+    #[prost(string, repeated, tag="9")]
+    pub task_runs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="10")]
+    pub trigger: ::core::option::Option<RunTriggerInfo>,
+    #[prost(message, repeated, tag="11")]
+    pub variables: ::prost::alloc::vec::Vec<Variable>,
+    #[prost(message, optional, tag="12")]
+    pub store_info: ::core::option::Option<RunStoreInfo>,
+}
+/// Nested message and enum types in `Run`.
+pub mod run {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum RunState {
+        Unknown = 0,
+        Pending = 1,
+        Running = 2,
+        Complete = 3,
+    }
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum RunStatus {
+        Unknown = 0,
+        Successful = 1,
+        Failed = 2,
+        Cancelled = 3,
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunFailureInfo {
+    #[prost(enumeration="run_failure_info::RunFailureReason", tag="1")]
+    pub reason: i32,
+    #[prost(string, tag="2")]
+    pub description: ::prost::alloc::string::String,
+}
+/// Nested message and enum types in `RunFailureInfo`.
+pub mod run_failure_info {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum RunFailureReason {
+        Unknown = 0,
+        AbnormalExit = 1,
+        SchedulerError = 2,
+        FailedPrecondition = 3,
+        UserCancelled = 4,
+        AdminCancelled = 5,
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunTriggerInfo {
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub label: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunStoreInfo {
+    #[prost(bool, tag="1")]
+    pub is_expired: bool,
+    #[prost(string, repeated, tag="2")]
+    pub keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RegistryAuth {
+    #[prost(string, tag="1")]
+    pub user: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pass: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Exec {
+    #[prost(string, tag="1")]
+    pub shell: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub script: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Task {
+    #[prost(string, tag="1")]
+    pub namespace: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub image: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="6")]
+    pub registry_auth: ::core::option::Option<RegistryAuth>,
+    #[prost(map="string, enumeration(task::RequiredParentStatus)", tag="7")]
+    pub depends_on: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
+    #[prost(message, repeated, tag="8")]
+    pub variables: ::prost::alloc::vec::Vec<Variable>,
+    #[prost(message, optional, tag="9")]
+    pub exec: ::core::option::Option<Exec>,
+}
+/// Nested message and enum types in `Task`.
+pub mod task {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum RequiredParentStatus {
+        Unknown = 0,
+        Any = 1,
+        Success = 2,
+        Failure = 3,
+    }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PipelineTriggerSettings {
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(map="string, string", tag="3")]
+    pub settings: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(string, tag="4")]
+    pub error: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PipelineNotifierSettings {
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(map="string, string", tag="3")]
+    pub settings: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(string, tag="4")]
+    pub error: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
-pub enum PipelineState {
+pub enum VariableOwner {
     Unknown = 0,
-    Active = 1,
-    Disabled = 2,
+    User = 1,
+    System = 2,
 }
 ////////////// System Transport Models //////////////
 
