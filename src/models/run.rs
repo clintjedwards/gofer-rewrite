@@ -1,11 +1,12 @@
 use crate::models::Variable;
 use crate::proto;
 
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 /// Represents the current state of the run as it progresses through the steps
 /// involved to completion.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RunState {
     /// Could not determine current state of the run. Should never happen.
     Unknown,

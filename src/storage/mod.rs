@@ -23,6 +23,9 @@ pub enum StorageError {
         err: String,
     },
 
+    #[error("entity was not in correct state for db operation")]
+    FailedPrecondition,
+
     #[error("unexpected storage error occurred; {0}")]
     Unknown(String),
 }

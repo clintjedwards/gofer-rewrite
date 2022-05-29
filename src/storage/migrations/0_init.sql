@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS pipelines (
     PRIMARY KEY (namespace, id)
 ) STRICT;
 
+CREATE INDEX idx_created_pipelines ON pipelines (created);
+
 CREATE TABLE IF NOT EXISTS pipeline_trigger_settings (
     namespace TEXT NOT NULL,
     pipeline  TEXT NOT NULL,

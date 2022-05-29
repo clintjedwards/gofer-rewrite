@@ -92,7 +92,7 @@ impl From<Variable> for proto::Variable {
         proto::Variable {
             key: p.key,
             value: p.value,
-            owner: VariableOwner::from(p.owner) as i32,
+            owner: Into::<proto::VariableOwner>::into(p.owner) as i32,
         }
     }
 }

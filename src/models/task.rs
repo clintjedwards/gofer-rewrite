@@ -143,10 +143,7 @@ impl From<Task> for proto::Task {
             depends_on: p
                 .depends_on
                 .into_iter()
-                .map(|(key, value)| {
-                    let value = proto::task::RequiredParentStatus::from(value) as i32;
-                    (key, value.into())
-                })
+                .map(|(key, value)| (key, proto::task::RequiredParentStatus::from(value) as i32))
                 .collect(),
             variables: { p.variables.into_iter().map(|var| var.into()).collect() },
             exec: p.exec.map(proto::Exec::from),

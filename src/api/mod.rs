@@ -23,9 +23,6 @@ const BUILD_COMMIT: &str = env!("BUILD_COMMIT");
 pub enum ApiError {
     #[error("could not successfully validate arguments; {0}")]
     InvalidArguments(String),
-
-    #[error("unexpected storage error occurred; {0}")]
-    Unknown(String),
 }
 
 fn epoch() -> u64 {
@@ -198,7 +195,7 @@ impl Gofer for Api {
 
         let result = self
             .storage
-            .list_pipelines(args.offset as u64, args.limit as u64, args.namespace_id)
+            .list_pipelines(args.offset as u64, args.limit as u64, &args.namespace_id)
             .await;
 
         match result {
@@ -229,7 +226,7 @@ impl Gofer for Api {
         };
 
         let new_pipeline =
-            models::Pipeline::new(args.namespace_id, pipeline_config.to_owned().into());
+            models::Pipeline::new(args.namespace_id.clone(), pipeline_config.to_owned().into());
 
         let result = self.storage.create_pipeline(&new_pipeline).await;
         match result {
@@ -257,7 +254,10 @@ impl Gofer for Api {
     ) -> Result<Response<GetPipelineResponse>, Status> {
         let args = &request.into_inner();
 
-        let result = self.storage.get_pipeline(&args.id).await;
+        let result = self
+            .storage
+            .get_pipeline(&args.namespace_id, &args.id)
+            .await;
         let pipeline = match result {
             Ok(pipeline) => pipeline,
             Err(e) => match e {
@@ -276,25 +276,18 @@ impl Gofer for Api {
         }))
     }
 
-    async fn update_pipeline(
+    async fn enable_pipeline(
         &self,
-        request: Request<UpdatePipelineRequest>,
-    ) -> Result<Response<UpdatePipelineResponse>, Status> {
+        request: Request<EnablePipelineRequest>,
+    ) -> Result<Response<EnablePipelineResponse>, Status> {
         let args = &request.into_inner();
 
         let result = self
             .storage
-            .update_pipeline(&models::Pipeline {
-                id: args.id.clone(),
-                name: args.name.clone(),
-                description: args.description.clone(),
-                created: 0,
-                modified: epoch(),
-            })
+            .update_pipeline_state(&args.namespace_id, &args.id, models::PipelineState::Active)
             .await;
-
         match result {
-            Ok(_) => (),
+            Ok(pipeline) => pipeline,
             Err(e) => match e {
                 storage::StorageError::NotFound => {
                     return Err(Status::not_found(format!(
@@ -306,7 +299,74 @@ impl Gofer for Api {
             },
         };
 
-        Ok(Response::new(UpdatePipelineResponse {}))
+        Ok(Response::new(EnablePipelineResponse {}))
+    }
+
+    async fn disable_pipeline(
+        &self,
+        request: Request<DisablePipelineRequest>,
+    ) -> Result<Response<DisablePipelineResponse>, Status> {
+        let args = &request.into_inner();
+
+        let result = self
+            .storage
+            .update_pipeline_state(
+                &args.namespace_id,
+                &args.id,
+                models::PipelineState::Disabled,
+            )
+            .await;
+        match result {
+            Ok(pipeline) => pipeline,
+            Err(e) => match e {
+                storage::StorageError::NotFound => {
+                    return Err(Status::not_found(format!(
+                        "pipeline with id '{}' does not exist",
+                        &args.id
+                    )))
+                }
+                _ => return Err(Status::internal(e.to_string())),
+            },
+        };
+
+        Ok(Response::new(DisablePipelineResponse {}))
+    }
+
+    async fn update_pipeline(
+        &self,
+        request: Request<UpdatePipelineRequest>,
+    ) -> Result<Response<UpdatePipelineResponse>, Status> {
+        let args = &request.into_inner();
+
+        let pipeline_config = match &args.pipeline_config {
+            Some(config) => config,
+            None => {
+                return Err(Status::failed_precondition(
+                    "must include valid pipeline config",
+                ));
+            }
+        };
+
+        let new_pipeline =
+            models::Pipeline::new(args.namespace_id.clone(), pipeline_config.to_owned().into());
+
+        let result = self.storage.update_pipeline(&new_pipeline).await;
+        match result {
+            Ok(_) => (),
+            Err(e) => match e {
+                storage::StorageError::NotFound => {
+                    return Err(Status::not_found(format!(
+                        "pipeline with id '{}' does not exist",
+                        &new_pipeline.id
+                    )))
+                }
+                _ => return Err(Status::internal(e.to_string())),
+            },
+        };
+
+        Ok(Response::new(UpdatePipelineResponse {
+            pipeline: Some(new_pipeline.into()),
+        }))
     }
 
     async fn delete_pipeline(
@@ -315,7 +375,10 @@ impl Gofer for Api {
     ) -> Result<Response<DeletePipelineResponse>, Status> {
         let args = &request.into_inner();
 
-        let result = self.storage.delete_pipeline(&args.id).await;
+        let result = self
+            .storage
+            .delete_pipeline(&args.namespace_id, &args.id)
+            .await;
         match result {
             Ok(_) => (),
             Err(e) => match e {
