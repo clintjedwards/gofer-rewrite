@@ -103,7 +103,6 @@ impl Kind {
                     .build()?;
 
                 let parsed_config = config_src.try_deserialize::<api::Config>()?;
-                dbg!(&parsed_config);
                 Ok(Kind::Api(parsed_config))
             }
             Kind::Cli(_) => {
