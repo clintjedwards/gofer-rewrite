@@ -1,3 +1,4 @@
 [workspace]
 
 members = ["gofer", "gofer_sdk", "gofer_proto"]
+exclude = ["example_pipelines/full"]

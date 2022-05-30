@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-gofer = { git = "https://github.com/clintjedwards/gofer" }
+gofer_sdk = { path = "../../gofer_sdk" }
