@@ -87,12 +87,12 @@ pub struct PipelineConfig {
     pub description: ::prost::alloc::string::String,
     #[prost(uint64, tag="4")]
     pub parallelism: u64,
-    #[prost(map="string, message", tag="5")]
-    pub tasks: ::std::collections::HashMap<::prost::alloc::string::String, Task>,
-    #[prost(map="string, message", tag="6")]
-    pub triggers: ::std::collections::HashMap<::prost::alloc::string::String, PipelineTriggerSettings>,
-    #[prost(map="string, message", tag="7")]
-    pub notifiers: ::std::collections::HashMap<::prost::alloc::string::String, PipelineNotifierSettings>,
+    #[prost(message, repeated, tag="5")]
+    pub tasks: ::prost::alloc::vec::Vec<Task>,
+    #[prost(message, repeated, tag="6")]
+    pub triggers: ::prost::alloc::vec::Vec<PipelineTriggerSettings>,
+    #[prost(message, repeated, tag="7")]
+    pub notifiers: ::prost::alloc::vec::Vec<PipelineNotifierSettings>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Run {
@@ -191,22 +191,18 @@ pub struct Exec {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Task {
     #[prost(string, tag="1")]
-    pub namespace: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub pipeline: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
     pub id: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
+    #[prost(string, tag="2")]
     pub description: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
+    #[prost(string, tag="3")]
     pub image: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="6")]
+    #[prost(message, optional, tag="4")]
     pub registry_auth: ::core::option::Option<RegistryAuth>,
-    #[prost(map="string, enumeration(task::RequiredParentStatus)", tag="7")]
+    #[prost(map="string, enumeration(task::RequiredParentStatus)", tag="5")]
     pub depends_on: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
-    #[prost(message, repeated, tag="8")]
+    #[prost(message, repeated, tag="6")]
     pub variables: ::prost::alloc::vec::Vec<Variable>,
-    #[prost(message, optional, tag="9")]
+    #[prost(message, optional, tag="7")]
     pub exec: ::core::option::Option<Exec>,
 }
 /// Nested message and enum types in `Task`.

@@ -66,9 +66,9 @@ message PipelineConfig {
   string name = 2;
   string description = 3;
   uint64 parallelism = 4;
-  map<string, Task> tasks = 5;
-  map<string, PipelineTriggerSettings> triggers = 6;
-  map<string, PipelineNotifierSettings> notifiers = 7;
+  repeated Task tasks = 5;
+  repeated PipelineTriggerSettings triggers = 6;
+  repeated PipelineNotifierSettings notifiers = 7;
 }
 
 message Run {
@@ -132,21 +132,19 @@ message Exec {
 }
 
 message Task {
-  string namespace = 1;
-  string pipeline = 2;
-  string id = 3;
-  string description = 4;
-  string image = 5;
-  RegistryAuth registry_auth = 6;
+  string id = 1;
+  string description = 2;
+  string image = 3;
+  RegistryAuth registry_auth = 4;
   enum RequiredParentStatus {
     REQUIRED_PARENT_STATUS_UNKNOWN = 0;
     ANY = 1;
     SUCCESS = 2;
     FAILURE = 3;
   }
-  map<string, RequiredParentStatus> depends_on = 7;
-  repeated Variable variables = 8;
-  Exec exec = 9;
+  map<string, RequiredParentStatus> depends_on = 5;
+  repeated Variable variables = 6;
+  Exec exec = 7;
 }
 
 message PipelineTriggerSettings {

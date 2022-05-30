@@ -1,4 +1,5 @@
 mod namespace;
+mod pipeline;
 mod service;
 
 use crate::conf::{self, cli::Config};

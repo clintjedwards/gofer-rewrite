@@ -1,4 +1,4 @@
-use crate::models::Variable;
+use crate::models::{Variable, VariableOwner};
 use crate::proto;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
@@ -95,12 +95,10 @@ impl From<Exec> for proto::Exec {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Task {
-    pub namespace: String,
-    pub pipeline: String,
     pub id: String,
-    pub description: String,
+    pub description: Option<String>,
     pub image: String,
     pub registry_auth: Option<RegistryAuth>,
     pub depends_on: HashMap<String, RequiredParentStatus>,
@@ -108,13 +106,71 @@ pub struct Task {
     pub exec: Option<Exec>,
 }
 
+impl Task {
+    pub fn new(id: &str, image: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            description: None,
+            image: image.to_string(),
+            registry_auth: None,
+            depends_on: HashMap::new(),
+            variables: Vec::new(),
+            exec: None,
+        }
+    }
+
+    pub fn description(mut self, description: &str) -> Self {
+        self.description = Some(description.to_string());
+        self
+    }
+
+    pub fn registry_auth(mut self, username: &str, password: &str) -> Self {
+        self.registry_auth = Some(RegistryAuth {
+            user: username.to_string(),
+            pass: password.to_string(),
+        });
+        self
+    }
+
+    pub fn depends_on_one(mut self, task_id: &str, state: RequiredParentStatus) -> Self {
+        self.depends_on.insert(task_id.to_string(), state);
+        self
+    }
+
+    pub fn depends_on_many(mut self, depends_on: HashMap<String, RequiredParentStatus>) -> Self {
+        self.depends_on.extend(depends_on);
+        self
+    }
+
+    pub fn variables(mut self, variables: HashMap<String, String>) -> Self {
+        self.variables = variables
+            .into_iter()
+            .map(|(key, value)| Variable {
+                key,
+                value,
+                owner: VariableOwner::User,
+            })
+            .collect();
+        self
+    }
+
+    pub fn exec(mut self, exec: Exec) -> Self {
+        self.exec = Some(exec);
+        self
+    }
+}
+
 impl From<proto::Task> for Task {
     fn from(p: proto::Task) -> Self {
         Task {
-            namespace: p.namespace,
-            pipeline: p.pipeline,
             id: p.id,
-            description: p.description,
+            description: {
+                if p.description.is_empty() {
+                    None
+                } else {
+                    Some(p.description)
+                }
+            },
             image: p.image,
             registry_auth: p.registry_auth.map(RegistryAuth::from),
             depends_on: p
@@ -134,10 +190,8 @@ impl From<proto::Task> for Task {
 impl From<Task> for proto::Task {
     fn from(p: Task) -> Self {
         proto::Task {
-            namespace: p.namespace,
-            pipeline: p.pipeline,
             id: p.id,
-            description: p.description,
+            description: p.description.unwrap_or_default(),
             image: p.image,
             registry_auth: p.registry_auth.map(proto::RegistryAuth::from),
             depends_on: p

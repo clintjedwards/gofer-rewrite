@@ -1,10 +1,12 @@
 mod namespace;
 mod pipeline;
+mod pipeline_config;
 mod run;
 mod task;
 
 pub use self::namespace::*;
 pub use self::pipeline::*;
+pub use self::pipeline_config::*;
 pub use self::run::*;
 pub use self::task::*;
 

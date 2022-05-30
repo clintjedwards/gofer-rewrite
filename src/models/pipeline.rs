@@ -1,4 +1,4 @@
-use crate::models::{epoch, Task};
+use crate::models::{epoch, PipelineConfig, Task, VariableOwner};
 use crate::proto;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -73,27 +73,6 @@ pub struct Pipeline {
     pub store_keys: Vec<String>,
 }
 
-impl Pipeline {
-    pub fn new(namespace: String, config: PipelineConfig) -> Self {
-        Pipeline {
-            namespace,
-            id: config.id,
-            name: config.name,
-            description: config.description,
-            last_run_id: 0,
-            last_run_time: 0,
-            parallelism: config.parallelism,
-            created: epoch(),
-            modified: epoch(),
-            state: PipelineState::Active,
-            tasks: config.tasks,
-            triggers: config.triggers,
-            notifiers: config.notifiers,
-            store_keys: vec![],
-        }
-    }
-}
-
 impl From<Pipeline> for proto::Pipeline {
     fn from(p: Pipeline) -> Self {
         proto::Pipeline {
@@ -127,46 +106,45 @@ impl From<Pipeline> for proto::Pipeline {
     }
 }
 
-#[derive(Debug)]
-pub struct PipelineConfig {
-    /// Unique user defined identifier.
-    pub id: String,
-    /// Humanized name, meant for display.
-    pub name: String,
-    /// Short description of what the pipeline is used for.
-    pub description: String,
-    /// Controls how many runs can be active at any single time.
-    pub parallelism: u64,
-    /// A mapping of pipeline owned tasks.
-    pub tasks: HashMap<String, Task>,
-    /// A mapping of pipeline owned triggers to their settings.
-    pub triggers: HashMap<String, PipelineTriggerSettings>,
-    /// A mapping of pipeline owned notifiers to their settings.
-    pub notifiers: HashMap<String, PipelineNotifierSettings>,
-}
-
-impl From<proto::PipelineConfig> for PipelineConfig {
-    fn from(ns: proto::PipelineConfig) -> Self {
-        PipelineConfig {
-            id: ns.id,
-            name: ns.name,
-            description: ns.description,
-            parallelism: ns.parallelism,
-            tasks: ns
+impl Pipeline {
+    pub fn new(namespace: String, config: PipelineConfig) -> Self {
+        Pipeline {
+            namespace,
+            id: config.id,
+            name: config.name,
+            description: config.description.unwrap_or_default(),
+            last_run_id: 0,
+            last_run_time: 0,
+            parallelism: config.parallelism,
+            created: epoch(),
+            modified: epoch(),
+            state: PipelineState::Active,
+            tasks: config
                 .tasks
                 .into_iter()
-                .map(|(key, value)| (key, value.into()))
+                .map(|mut task| {
+                    task.variables = task
+                        .variables
+                        .into_iter()
+                        .map(|mut t| {
+                            t.owner = VariableOwner::User;
+                            t
+                        })
+                        .collect();
+                    (task.id.clone(), task)
+                })
                 .collect(),
-            triggers: ns
+            triggers: config
                 .triggers
                 .into_iter()
-                .map(|(key, value)| (key, value.into()))
+                .map(|trigger| (trigger.label.clone(), trigger))
                 .collect(),
-            notifiers: ns
+            notifiers: config
                 .notifiers
                 .into_iter()
-                .map(|(key, value)| (key, value.into()))
+                .map(|notifier| (notifier.label.clone(), notifier))
                 .collect(),
+            store_keys: vec![],
         }
     }
 }
@@ -175,7 +153,7 @@ impl From<proto::PipelineConfig> for PipelineConfig {
 /// values back to that trigger for certain functionality. Since triggers keep no
 /// permanent state, these settings are kept here so that when triggers are restarted
 /// they can be restored with proper settings.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PipelineTriggerSettings {
     /// A global unique identifier for the trigger type.
     pub kind: String,
@@ -186,6 +164,22 @@ pub struct PipelineTriggerSettings {
     pub settings: HashMap<String, String>,
     /// If the trigger could not be set up for the pipeline we return an error on why that might be.
     pub error: Option<String>,
+}
+
+impl PipelineTriggerSettings {
+    pub fn new(kind: &str, label: &str) -> Self {
+        PipelineTriggerSettings {
+            kind: kind.to_string(),
+            label: label.to_string(),
+            settings: HashMap::new(),
+            error: None,
+        }
+    }
+
+    pub fn settings(mut self, settings: HashMap<String, String>) -> Self {
+        self.settings = settings;
+        self
+    }
 }
 
 impl From<proto::PipelineTriggerSettings> for PipelineTriggerSettings {
@@ -219,7 +213,7 @@ impl From<PipelineTriggerSettings> for proto::PipelineTriggerSettings {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PipelineNotifierSettings {
     /// A global unique identifier for the notifier type.
     pub kind: String,
@@ -230,6 +224,22 @@ pub struct PipelineNotifierSettings {
     pub settings: HashMap<String, String>,
     /// If the notifier could not be set up for the pipeline we return an error on why that might be.
     pub error: Option<String>,
+}
+
+impl PipelineNotifierSettings {
+    pub fn new(kind: &str, label: &str) -> Self {
+        PipelineNotifierSettings {
+            kind: kind.to_string(),
+            label: label.to_string(),
+            settings: HashMap::new(),
+            error: None,
+        }
+    }
+
+    pub fn settings(mut self, settings: HashMap<String, String>) -> Self {
+        self.settings = settings;
+        self
+    }
 }
 
 impl From<proto::PipelineNotifierSettings> for PipelineNotifierSettings {

@@ -108,7 +108,7 @@ impl Db {
 
             let tasks = sqlx::query(
                 r#"
-            SELECT namespace, pipeline, id, description, image, registry_auth, depends_on,
+            SELECT id, description, image, registry_auth, depends_on,
             variables, exec
             FROM tasks
             WHERE namespace = ? AND pipeline = ?;
@@ -117,8 +117,6 @@ impl Db {
             .bind(pipeline.namespace.clone())
             .bind(pipeline.id.clone())
             .map(|row: SqliteRow| Task {
-                namespace: row.get("namespace"),
-                pipeline: row.get("pipeline"),
                 id: row.get("id"),
                 description: row.get("description"),
                 image: row.get("image"),
@@ -275,7 +273,8 @@ impl Db {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
                 "#,
             )
-            .bind(task.pipeline.clone())
+            .bind(pipeline.namespace.clone())
+            .bind(pipeline.id.clone())
             .bind(task.id.clone())
             .bind(task.description.clone())
             .bind(task.image.clone())
@@ -452,8 +451,6 @@ impl Db {
         .bind(pipeline.namespace.clone())
         .bind(pipeline.id.clone())
         .map(|row: SqliteRow| Task {
-            namespace: row.get("namespace"),
-            pipeline: row.get("pipeline"),
             id: row.get("id"),
             description: row.get("description"),
             image: row.get("image"),
@@ -712,8 +709,8 @@ impl Db {
             WHERE namespace = ? AND pipeline = ? AND id = ?;
                 "#,
             )
-            .bind(&task.namespace)
-            .bind(&task.pipeline)
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
             .bind(id)
             .execute(&mut tx)
             .map_ok(|_| ())
@@ -730,7 +727,8 @@ impl Db {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
                 "#,
             )
-            .bind(task.pipeline.clone())
+            .bind(pipeline.id.clone())
+            .bind(pipeline.namespace.clone())
             .bind(task.id.clone())
             .bind(task.description.clone())
             .bind(task.image.clone())
