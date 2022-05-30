@@ -1,6 +1,6 @@
 use crate::api;
 use crate::conf;
-use proto::{gofer_client::GoferClient, GetSystemInfoRequest};
+use gofer_proto::{gofer_client::GoferClient, GetSystemInfoRequest};
 
 use clap::{Args, Subcommand};
 use std::process;

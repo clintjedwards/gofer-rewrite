@@ -17,13 +17,13 @@ pub enum RunState {
     Complete,
 }
 
-impl From<proto::run::RunState> for RunState {
-    fn from(r: proto::run::RunState) -> Self {
+impl From<gofer_proto::run::RunState> for RunState {
+    fn from(r: gofer_proto::run::RunState) -> Self {
         match r {
-            proto::run::RunState::Unknown => RunState::Unknown,
-            proto::run::RunState::Pending => RunState::Pending,
-            proto::run::RunState::Running => RunState::Running,
-            proto::run::RunState::Complete => RunState::Complete,
+            gofer_proto::run::RunState::Unknown => RunState::Unknown,
+            gofer_proto::run::RunState::Pending => RunState::Pending,
+            gofer_proto::run::RunState::Running => RunState::Running,
+            gofer_proto::run::RunState::Complete => RunState::Complete,
         }
     }
 }
@@ -56,13 +56,13 @@ pub enum RunStatus {
     Cancelled,
 }
 
-impl From<proto::run::RunStatus> for RunStatus {
-    fn from(r: proto::run::RunStatus) -> Self {
+impl From<gofer_proto::run::RunStatus> for RunStatus {
+    fn from(r: gofer_proto::run::RunStatus) -> Self {
         match r {
-            proto::run::RunStatus::Unknown => RunStatus::Unknown,
-            proto::run::RunStatus::Successful => RunStatus::Successful,
-            proto::run::RunStatus::Failed => RunStatus::Failed,
-            proto::run::RunStatus::Cancelled => RunStatus::Cancelled,
+            gofer_proto::run::RunStatus::Unknown => RunStatus::Unknown,
+            gofer_proto::run::RunStatus::Successful => RunStatus::Successful,
+            gofer_proto::run::RunStatus::Failed => RunStatus::Failed,
+            gofer_proto::run::RunStatus::Cancelled => RunStatus::Cancelled,
         }
     }
 }
@@ -98,23 +98,23 @@ pub enum RunFailureReason {
     AdminCancelled,
 }
 
-impl From<proto::run_failure_info::RunFailureReason> for RunFailureReason {
-    fn from(r: proto::run_failure_info::RunFailureReason) -> Self {
+impl From<gofer_proto::run_failure_info::RunFailureReason> for RunFailureReason {
+    fn from(r: gofer_proto::run_failure_info::RunFailureReason) -> Self {
         match r {
-            proto::run_failure_info::RunFailureReason::Unknown => RunFailureReason::Unknown,
-            proto::run_failure_info::RunFailureReason::AbnormalExit => {
+            gofer_proto::run_failure_info::RunFailureReason::Unknown => RunFailureReason::Unknown,
+            gofer_proto::run_failure_info::RunFailureReason::AbnormalExit => {
                 RunFailureReason::AbnormalExit
             }
-            proto::run_failure_info::RunFailureReason::SchedulerError => {
+            gofer_proto::run_failure_info::RunFailureReason::SchedulerError => {
                 RunFailureReason::SchedulerError
             }
-            proto::run_failure_info::RunFailureReason::FailedPrecondition => {
+            gofer_proto::run_failure_info::RunFailureReason::FailedPrecondition => {
                 RunFailureReason::FailedPrecondition
             }
-            proto::run_failure_info::RunFailureReason::UserCancelled => {
+            gofer_proto::run_failure_info::RunFailureReason::UserCancelled => {
                 RunFailureReason::UserCancelled
             }
-            proto::run_failure_info::RunFailureReason::AdminCancelled => {
+            gofer_proto::run_failure_info::RunFailureReason::AdminCancelled => {
                 RunFailureReason::AdminCancelled
             }
         }

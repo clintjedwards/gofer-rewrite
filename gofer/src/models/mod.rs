@@ -32,22 +32,22 @@ pub enum VariableOwner {
     System,
 }
 
-impl From<proto::VariableOwner> for VariableOwner {
-    fn from(p: proto::VariableOwner) -> Self {
+impl From<gofer_proto::VariableOwner> for VariableOwner {
+    fn from(p: gofer_proto::VariableOwner) -> Self {
         match p {
-            proto::VariableOwner::Unknown => VariableOwner::Unknown,
-            proto::VariableOwner::User => VariableOwner::User,
-            proto::VariableOwner::System => VariableOwner::System,
+            gofer_proto::VariableOwner::Unknown => VariableOwner::Unknown,
+            gofer_proto::VariableOwner::User => VariableOwner::User,
+            gofer_proto::VariableOwner::System => VariableOwner::System,
         }
     }
 }
 
-impl From<VariableOwner> for proto::VariableOwner {
+impl From<VariableOwner> for gofer_proto::VariableOwner {
     fn from(p: VariableOwner) -> Self {
         match p {
-            VariableOwner::Unknown => proto::VariableOwner::Unknown,
-            VariableOwner::User => proto::VariableOwner::User,
-            VariableOwner::System => proto::VariableOwner::System,
+            VariableOwner::Unknown => gofer_proto::VariableOwner::Unknown,
+            VariableOwner::User => gofer_proto::VariableOwner::User,
+            VariableOwner::System => gofer_proto::VariableOwner::System,
         }
     }
 }
@@ -76,22 +76,24 @@ pub struct Variable {
     pub owner: VariableOwner,
 }
 
-impl From<proto::Variable> for Variable {
-    fn from(p: proto::Variable) -> Self {
+impl From<gofer_proto::Variable> for Variable {
+    fn from(p: gofer_proto::Variable) -> Self {
         Variable {
             key: p.key,
             value: p.value,
-            owner: proto::VariableOwner::from_i32(p.owner).unwrap().into(),
+            owner: gofer_proto::VariableOwner::from_i32(p.owner)
+                .unwrap()
+                .into(),
         }
     }
 }
 
-impl From<Variable> for proto::Variable {
+impl From<Variable> for gofer_proto::Variable {
     fn from(p: Variable) -> Self {
-        proto::Variable {
+        gofer_proto::Variable {
             key: p.key,
             value: p.value,
-            owner: Into::<proto::VariableOwner>::into(p.owner) as i32,
+            owner: Into::<gofer_proto::VariableOwner>::into(p.owner) as i32,
         }
     }
 }

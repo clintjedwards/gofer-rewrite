@@ -10,24 +10,24 @@ pub enum RequiredParentStatus {
     Failure,
 }
 
-impl From<proto::task::RequiredParentStatus> for RequiredParentStatus {
-    fn from(r: proto::task::RequiredParentStatus) -> Self {
+impl From<gofer_proto::task::RequiredParentStatus> for RequiredParentStatus {
+    fn from(r: gofer_proto::task::RequiredParentStatus) -> Self {
         match r {
-            proto::task::RequiredParentStatus::Unknown => RequiredParentStatus::Unknown,
-            proto::task::RequiredParentStatus::Any => RequiredParentStatus::Any,
-            proto::task::RequiredParentStatus::Success => RequiredParentStatus::Success,
-            proto::task::RequiredParentStatus::Failure => RequiredParentStatus::Failure,
+            gofer_proto::task::RequiredParentStatus::Unknown => RequiredParentStatus::Unknown,
+            gofer_proto::task::RequiredParentStatus::Any => RequiredParentStatus::Any,
+            gofer_proto::task::RequiredParentStatus::Success => RequiredParentStatus::Success,
+            gofer_proto::task::RequiredParentStatus::Failure => RequiredParentStatus::Failure,
         }
     }
 }
 
-impl From<RequiredParentStatus> for proto::task::RequiredParentStatus {
+impl From<RequiredParentStatus> for gofer_proto::task::RequiredParentStatus {
     fn from(r: RequiredParentStatus) -> Self {
         match r {
-            RequiredParentStatus::Unknown => proto::task::RequiredParentStatus::Unknown,
-            RequiredParentStatus::Any => proto::task::RequiredParentStatus::Any,
-            RequiredParentStatus::Success => proto::task::RequiredParentStatus::Success,
-            RequiredParentStatus::Failure => proto::task::RequiredParentStatus::Failure,
+            RequiredParentStatus::Unknown => gofer_proto::task::RequiredParentStatus::Unknown,
+            RequiredParentStatus::Any => gofer_proto::task::RequiredParentStatus::Any,
+            RequiredParentStatus::Success => gofer_proto::task::RequiredParentStatus::Success,
+            RequiredParentStatus::Failure => gofer_proto::task::RequiredParentStatus::Failure,
         }
     }
 }
@@ -63,8 +63,8 @@ pub struct RegistryAuth {
     pub pass: String,
 }
 
-impl From<proto::RegistryAuth> for RegistryAuth {
-    fn from(p: proto::RegistryAuth) -> Self {
+impl From<gofer_proto::RegistryAuth> for RegistryAuth {
+    fn from(p: gofer_proto::RegistryAuth) -> Self {
         RegistryAuth {
             user: p.user,
             pass: p.pass,
@@ -72,9 +72,9 @@ impl From<proto::RegistryAuth> for RegistryAuth {
     }
 }
 
-impl From<RegistryAuth> for proto::RegistryAuth {
+impl From<RegistryAuth> for gofer_proto::RegistryAuth {
     fn from(p: RegistryAuth) -> Self {
-        proto::RegistryAuth {
+        gofer_proto::RegistryAuth {
             user: p.user,
             pass: p.pass,
         }
@@ -96,8 +96,8 @@ pub struct Exec {
     pub script: String,
 }
 
-impl From<proto::Exec> for Exec {
-    fn from(p: proto::Exec) -> Self {
+impl From<gofer_proto::Exec> for Exec {
+    fn from(p: gofer_proto::Exec) -> Self {
         Exec {
             shell: p.shell,
             script: p.script,
@@ -105,9 +105,9 @@ impl From<proto::Exec> for Exec {
     }
 }
 
-impl From<Exec> for proto::Exec {
+impl From<Exec> for gofer_proto::Exec {
     fn from(p: Exec) -> Self {
-        proto::Exec {
+        gofer_proto::Exec {
             shell: p.shell,
             script: p.script,
         }
@@ -188,8 +188,8 @@ impl Task {
     }
 }
 
-impl From<proto::Task> for Task {
-    fn from(p: proto::Task) -> Self {
+impl From<gofer_proto::Task> for Task {
+    fn from(p: gofer_proto::Task) -> Self {
         Task {
             id: p.id,
             description: {
@@ -205,7 +205,7 @@ impl From<proto::Task> for Task {
                 .depends_on
                 .into_iter()
                 .map(|(key, value)| {
-                    let value = proto::task::RequiredParentStatus::from_i32(value).unwrap();
+                    let value = gofer_proto::task::RequiredParentStatus::from_i32(value).unwrap();
                     (key, value.into())
                 })
                 .collect(),
@@ -215,20 +215,25 @@ impl From<proto::Task> for Task {
     }
 }
 
-impl From<Task> for proto::Task {
+impl From<Task> for gofer_proto::Task {
     fn from(p: Task) -> Self {
-        proto::Task {
+        gofer_proto::Task {
             id: p.id,
             description: p.description.unwrap_or_default(),
             image: p.image,
-            registry_auth: p.registry_auth.map(proto::RegistryAuth::from),
+            registry_auth: p.registry_auth.map(gofer_proto::RegistryAuth::from),
             depends_on: p
                 .depends_on
                 .into_iter()
-                .map(|(key, value)| (key, proto::task::RequiredParentStatus::from(value) as i32))
+                .map(|(key, value)| {
+                    (
+                        key,
+                        gofer_proto::task::RequiredParentStatus::from(value) as i32,
+                    )
+                })
                 .collect(),
             variables: { p.variables.into_iter().map(|var| var.into()).collect() },
-            exec: p.exec.map(proto::Exec::from),
+            exec: p.exec.map(gofer_proto::Exec::from),
         }
     }
 }

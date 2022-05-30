@@ -3,7 +3,7 @@ use crate::cli::humanize_duration;
 use clap::{Args, Subcommand};
 use colored::Colorize;
 use comfy_table::{presets::ASCII_MARKDOWN, Cell, CellAlignment, Color, ContentArrangement};
-use proto::{
+use gofer_proto::{
     CreateNamespaceRequest, DeleteNamespaceRequest, GetNamespaceRequest, ListNamespacesRequest,
     UpdateNamespaceRequest,
 };

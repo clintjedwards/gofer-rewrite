@@ -5,7 +5,7 @@ use crate::frontend;
 use crate::models;
 use crate::storage;
 use crate::{conf, storage::StorageError};
-use proto::{
+use gofer_proto::{
     gofer_server::{Gofer, GoferServer},
     *,
 };
@@ -64,7 +64,7 @@ impl Gofer for Api {
             Ok(namespaces_raw) => {
                 let namespaces = namespaces_raw
                     .into_iter()
-                    .map(proto::Namespace::from)
+                    .map(gofer_proto::Namespace::from)
                     .collect();
                 return Ok(Response::new(ListNamespacesResponse { namespaces }));
             }
@@ -201,7 +201,7 @@ impl Gofer for Api {
             Ok(pipelines_raw) => {
                 let pipelines = pipelines_raw
                     .into_iter()
-                    .map(proto::Pipeline::from)
+                    .map(gofer_proto::Pipeline::from)
                     .collect();
                 return Ok(Response::new(ListPipelinesResponse { pipelines }));
             }

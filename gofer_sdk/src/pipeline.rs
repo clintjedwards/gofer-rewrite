@@ -21,8 +21,8 @@ pub struct PipelineConfig {
     pub notifiers: Vec<PipelineNotifierConfig>,
 }
 
-impl From<proto::PipelineConfig> for PipelineConfig {
-    fn from(p: proto::PipelineConfig) -> Self {
+impl From<gofer_proto::PipelineConfig> for PipelineConfig {
+    fn from(p: gofer_proto::PipelineConfig) -> Self {
         PipelineConfig {
             id: p.id,
             name: p.name,
@@ -41,9 +41,9 @@ impl From<proto::PipelineConfig> for PipelineConfig {
     }
 }
 
-impl From<PipelineConfig> for proto::PipelineConfig {
+impl From<PipelineConfig> for gofer_proto::PipelineConfig {
     fn from(p: PipelineConfig) -> Self {
-        proto::PipelineConfig {
+        gofer_proto::PipelineConfig {
             id: p.id,
             name: p.name,
             description: p.description.unwrap_or_default(),
@@ -128,8 +128,8 @@ impl PipelineTriggerConfig {
     }
 }
 
-impl From<proto::PipelineTriggerConfig> for PipelineTriggerConfig {
-    fn from(p: proto::PipelineTriggerConfig) -> Self {
+impl From<gofer_proto::PipelineTriggerConfig> for PipelineTriggerConfig {
+    fn from(p: gofer_proto::PipelineTriggerConfig) -> Self {
         PipelineTriggerConfig {
             kind: p.kind,
             label: p.label,
@@ -138,9 +138,9 @@ impl From<proto::PipelineTriggerConfig> for PipelineTriggerConfig {
     }
 }
 
-impl From<PipelineTriggerConfig> for proto::PipelineTriggerConfig {
+impl From<PipelineTriggerConfig> for gofer_proto::PipelineTriggerConfig {
     fn from(p: PipelineTriggerConfig) -> Self {
-        proto::PipelineTriggerConfig {
+        gofer_proto::PipelineTriggerConfig {
             kind: p.kind,
             label: p.label,
             settings: p.settings,
@@ -174,8 +174,8 @@ impl PipelineNotifierConfig {
     }
 }
 
-impl From<proto::PipelineNotifierConfig> for PipelineNotifierConfig {
-    fn from(p: proto::PipelineNotifierConfig) -> Self {
+impl From<gofer_proto::PipelineNotifierConfig> for PipelineNotifierConfig {
+    fn from(p: gofer_proto::PipelineNotifierConfig) -> Self {
         PipelineNotifierConfig {
             kind: p.kind,
             label: p.label,
@@ -184,9 +184,9 @@ impl From<proto::PipelineNotifierConfig> for PipelineNotifierConfig {
     }
 }
 
-impl From<PipelineNotifierConfig> for proto::PipelineNotifierConfig {
+impl From<PipelineNotifierConfig> for gofer_proto::PipelineNotifierConfig {
     fn from(p: PipelineNotifierConfig) -> Self {
-        proto::PipelineNotifierConfig {
+        gofer_proto::PipelineNotifierConfig {
             kind: p.kind,
             label: p.label,
             settings: p.settings,

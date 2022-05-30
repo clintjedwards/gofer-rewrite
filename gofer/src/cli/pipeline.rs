@@ -59,7 +59,7 @@ impl CliHarness {
             }
         };
 
-        let request = tonic::Request::new(proto::ListPipelinesRequest {
+        let request = tonic::Request::new(gofer_proto::ListPipelinesRequest {
             namespace_id: namespace.unwrap_or_else(|| self.config.namespace.clone()),
             offset: 0,
             limit: 0,
@@ -104,7 +104,8 @@ impl CliHarness {
                 Cell::new(pipeline.description),
                 Cell::new(humanize_duration(pipeline.last_run_time as i64)),
                 Cell::new({
-                    let state = proto::pipeline::PipelineState::from_i32(pipeline.state).unwrap();
+                    let state =
+                        gofer_proto::pipeline::PipelineState::from_i32(pipeline.state).unwrap();
                     models::PipelineState::from(state).to_string()
                 }),
                 Cell::new(humanize_duration(pipeline.created as i64)),
@@ -123,7 +124,7 @@ impl CliHarness {
             }
         };
 
-        let request = tonic::Request::new(proto::CreatePipelineRequest {
+        let request = tonic::Request::new(gofer_proto::CreatePipelineRequest {
             namespace_id: namespace.unwrap_or_else(|| self.config.namespace.clone()),
             pipeline_config: None,
         });
@@ -149,7 +150,7 @@ impl CliHarness {
     //             }
     //         };
 
-    //         let request = tonic::Request::new(proto::GetPipelineRequest {
+    //         let request = tonic::Request::new(gofer_proto::GetPipelineRequest {
     //             namespace_id: namespace.unwrap_or(self.config.namespace.clone()),
     //             id: id.to_string(),
     //         });
@@ -183,7 +184,7 @@ impl CliHarness {
     //             }
     //         };
 
-    //         let request = tonic::Request::new(proto::GetPipelineRequest {
+    //         let request = tonic::Request::new(gofer_proto::GetPipelineRequest {
     //             namespace_id: namespace.unwrap_or(self.config.namespace.clone()),
     //             id: id.to_string(),
     //         });
@@ -197,7 +198,7 @@ impl CliHarness {
 
     //         let current_pipeline = response.pipeline.unwrap();
 
-    //         let request = tonic::Request::new(proto::UpdatePipelineRequest {
+    //         let request = tonic::Request::new(gofer_proto::UpdatePipelineRequest {
     //             namespace_id: namespace.unwrap_or(self.config.namespace.clone()),
     //             id: id.to_string(),
     //             name: name.unwrap_or(current_pipeline.name),

@@ -16,22 +16,22 @@ pub enum PipelineState {
     Disabled,
 }
 
-impl From<proto::pipeline::PipelineState> for PipelineState {
-    fn from(p: proto::pipeline::PipelineState) -> Self {
+impl From<gofer_proto::pipeline::PipelineState> for PipelineState {
+    fn from(p: gofer_proto::pipeline::PipelineState) -> Self {
         match p {
-            proto::pipeline::PipelineState::Unknown => PipelineState::Unknown,
-            proto::pipeline::PipelineState::Active => PipelineState::Active,
-            proto::pipeline::PipelineState::Disabled => PipelineState::Disabled,
+            gofer_proto::pipeline::PipelineState::Unknown => PipelineState::Unknown,
+            gofer_proto::pipeline::PipelineState::Active => PipelineState::Active,
+            gofer_proto::pipeline::PipelineState::Disabled => PipelineState::Disabled,
         }
     }
 }
 
-impl From<PipelineState> for proto::pipeline::PipelineState {
+impl From<PipelineState> for gofer_proto::pipeline::PipelineState {
     fn from(p: PipelineState) -> Self {
         match p {
-            PipelineState::Unknown => proto::pipeline::PipelineState::Unknown,
-            PipelineState::Active => proto::pipeline::PipelineState::Active,
-            PipelineState::Disabled => proto::pipeline::PipelineState::Disabled,
+            PipelineState::Unknown => gofer_proto::pipeline::PipelineState::Unknown,
+            PipelineState::Active => gofer_proto::pipeline::PipelineState::Active,
+            PipelineState::Disabled => gofer_proto::pipeline::PipelineState::Disabled,
         }
     }
 }
@@ -72,9 +72,9 @@ pub struct Pipeline {
     pub store_keys: Vec<String>,
 }
 
-impl From<Pipeline> for proto::Pipeline {
+impl From<Pipeline> for gofer_proto::Pipeline {
     fn from(p: Pipeline) -> Self {
-        proto::Pipeline {
+        gofer_proto::Pipeline {
             namespace: p.namespace,
             id: p.id,
             name: p.name,
@@ -84,7 +84,7 @@ impl From<Pipeline> for proto::Pipeline {
             parallelism: p.parallelism,
             created: p.created,
             modified: p.modified,
-            state: proto::pipeline::PipelineState::from(p.state) as i32,
+            state: gofer_proto::pipeline::PipelineState::from(p.state) as i32,
             tasks: p
                 .tasks
                 .into_iter()
@@ -171,8 +171,8 @@ impl PipelineTriggerSettings {
     }
 }
 
-impl From<proto::PipelineTriggerSettings> for PipelineTriggerSettings {
-    fn from(p: proto::PipelineTriggerSettings) -> Self {
+impl From<gofer_proto::PipelineTriggerSettings> for PipelineTriggerSettings {
+    fn from(p: gofer_proto::PipelineTriggerSettings) -> Self {
         PipelineTriggerSettings {
             kind: p.kind,
             label: p.label,
@@ -188,9 +188,9 @@ impl From<proto::PipelineTriggerSettings> for PipelineTriggerSettings {
     }
 }
 
-impl From<PipelineTriggerSettings> for proto::PipelineTriggerSettings {
+impl From<PipelineTriggerSettings> for gofer_proto::PipelineTriggerSettings {
     fn from(p: PipelineTriggerSettings) -> Self {
-        proto::PipelineTriggerSettings {
+        gofer_proto::PipelineTriggerSettings {
             kind: p.kind,
             label: p.label,
             settings: p.settings,
@@ -242,8 +242,8 @@ impl PipelineNotifierSettings {
     }
 }
 
-impl From<proto::PipelineNotifierSettings> for PipelineNotifierSettings {
-    fn from(p: proto::PipelineNotifierSettings) -> Self {
+impl From<gofer_proto::PipelineNotifierSettings> for PipelineNotifierSettings {
+    fn from(p: gofer_proto::PipelineNotifierSettings) -> Self {
         PipelineNotifierSettings {
             kind: p.kind,
             label: p.label,
@@ -259,9 +259,9 @@ impl From<proto::PipelineNotifierSettings> for PipelineNotifierSettings {
     }
 }
 
-impl From<PipelineNotifierSettings> for proto::PipelineNotifierSettings {
+impl From<PipelineNotifierSettings> for gofer_proto::PipelineNotifierSettings {
     fn from(p: PipelineNotifierSettings) -> Self {
-        proto::PipelineNotifierSettings {
+        gofer_proto::PipelineNotifierSettings {
             kind: p.kind,
             label: p.label,
             settings: p.settings,

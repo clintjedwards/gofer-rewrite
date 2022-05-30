@@ -28,9 +28,9 @@ impl Namespace {
     }
 }
 
-impl From<Namespace> for proto::Namespace {
+impl From<Namespace> for gofer_proto::Namespace {
     fn from(ns: Namespace) -> Self {
-        proto::Namespace {
+        gofer_proto::Namespace {
             id: ns.id,
             name: ns.name,
             description: ns.description,
@@ -40,8 +40,8 @@ impl From<Namespace> for proto::Namespace {
     }
 }
 
-impl From<proto::Namespace> for Namespace {
-    fn from(ns: proto::Namespace) -> Self {
+impl From<gofer_proto::Namespace> for Namespace {
+    fn from(ns: gofer_proto::Namespace) -> Self {
         Namespace {
             id: ns.id,
             name: ns.name,
