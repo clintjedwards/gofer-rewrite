@@ -13,3 +13,4 @@
   - cleaner and less obtuse env variables parsing
   - the ability to alter configuration and write it back to the file.
 - Create a namespace set command that allows the user to switch between namespaces and save it in their configuration file.
+- Document/Comment all libraries
