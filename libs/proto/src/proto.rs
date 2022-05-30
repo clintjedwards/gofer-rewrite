@@ -88,11 +88,11 @@ pub struct PipelineConfig {
     #[prost(uint64, tag="4")]
     pub parallelism: u64,
     #[prost(message, repeated, tag="5")]
-    pub tasks: ::prost::alloc::vec::Vec<Task>,
+    pub tasks: ::prost::alloc::vec::Vec<TaskConfig>,
     #[prost(message, repeated, tag="6")]
-    pub triggers: ::prost::alloc::vec::Vec<PipelineTriggerSettings>,
+    pub triggers: ::prost::alloc::vec::Vec<PipelineTriggerConfig>,
     #[prost(message, repeated, tag="7")]
-    pub notifiers: ::prost::alloc::vec::Vec<PipelineNotifierSettings>,
+    pub notifiers: ::prost::alloc::vec::Vec<PipelineNotifierConfig>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Run {
@@ -237,6 +237,52 @@ pub struct PipelineNotifierSettings {
     pub settings: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
     #[prost(string, tag="4")]
     pub error: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TaskConfig {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub image: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="4")]
+    pub registry_auth: ::core::option::Option<RegistryAuth>,
+    #[prost(map="string, enumeration(task_config::RequiredParentStatus)", tag="5")]
+    pub depends_on: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
+    #[prost(map="string, string", tag="6")]
+    pub variables: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(message, optional, tag="7")]
+    pub exec: ::core::option::Option<Exec>,
+}
+/// Nested message and enum types in `TaskConfig`.
+pub mod task_config {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum RequiredParentStatus {
+        Unknown = 0,
+        Any = 1,
+        Success = 2,
+        Failure = 3,
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PipelineTriggerConfig {
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(map="string, string", tag="3")]
+    pub settings: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PipelineNotifierConfig {
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(map="string, string", tag="3")]
+    pub settings: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

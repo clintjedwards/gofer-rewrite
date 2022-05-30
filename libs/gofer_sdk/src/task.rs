@@ -1,4 +1,3 @@
-use crate::models::{Variable, VariableOwner};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
 
@@ -28,17 +27,6 @@ impl From<RequiredParentStatus> for proto::task::RequiredParentStatus {
             RequiredParentStatus::Any => proto::task::RequiredParentStatus::Any,
             RequiredParentStatus::Success => proto::task::RequiredParentStatus::Success,
             RequiredParentStatus::Failure => proto::task::RequiredParentStatus::Failure,
-        }
-    }
-}
-
-impl From<gofer_sdk::RequiredParentStatus> for RequiredParentStatus {
-    fn from(r: gofer_sdk::RequiredParentStatus) -> Self {
-        match r {
-            gofer_sdk::RequiredParentStatus::Unknown => RequiredParentStatus::Unknown,
-            gofer_sdk::RequiredParentStatus::Any => RequiredParentStatus::Any,
-            gofer_sdk::RequiredParentStatus::Success => RequiredParentStatus::Success,
-            gofer_sdk::RequiredParentStatus::Failure => RequiredParentStatus::Failure,
         }
     }
 }
@@ -81,15 +69,6 @@ impl From<RegistryAuth> for proto::RegistryAuth {
     }
 }
 
-impl From<gofer_sdk::RegistryAuth> for RegistryAuth {
-    fn from(p: gofer_sdk::RegistryAuth) -> Self {
-        RegistryAuth {
-            user: p.user,
-            pass: p.pass,
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Exec {
     pub shell: String,
@@ -114,27 +93,18 @@ impl From<Exec> for proto::Exec {
     }
 }
 
-impl From<gofer_sdk::Exec> for Exec {
-    fn from(p: gofer_sdk::Exec) -> Self {
-        Exec {
-            shell: p.shell,
-            script: p.script,
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Task {
+pub struct TaskConfig {
     pub id: String,
     pub description: Option<String>,
     pub image: String,
     pub registry_auth: Option<RegistryAuth>,
     pub depends_on: HashMap<String, RequiredParentStatus>,
-    pub variables: Vec<Variable>,
+    pub variables: HashMap<String, String>,
     pub exec: Option<Exec>,
 }
 
-impl Task {
+impl TaskConfig {
     pub fn new(id: &str, image: &str) -> Self {
         Self {
             id: id.to_string(),
@@ -142,7 +112,7 @@ impl Task {
             image: image.to_string(),
             registry_auth: None,
             depends_on: HashMap::new(),
-            variables: Vec::new(),
+            variables: HashMap::new(),
             exec: None,
         }
     }
@@ -170,15 +140,13 @@ impl Task {
         self
     }
 
+    pub fn variable(mut self, key: &str, value: &str) -> Self {
+        self.variables.insert(key.to_string(), value.to_string());
+        self
+    }
+
     pub fn variables(mut self, variables: HashMap<String, String>) -> Self {
-        self.variables = variables
-            .into_iter()
-            .map(|(key, value)| Variable {
-                key,
-                value,
-                owner: VariableOwner::User,
-            })
-            .collect();
+        self.variables.extend(variables);
         self
     }
 
@@ -188,9 +156,9 @@ impl Task {
     }
 }
 
-impl From<proto::Task> for Task {
-    fn from(p: proto::Task) -> Self {
-        Task {
+impl From<proto::TaskConfig> for TaskConfig {
+    fn from(p: proto::TaskConfig) -> Self {
+        TaskConfig {
             id: p.id,
             description: {
                 if p.description.is_empty() {
@@ -209,15 +177,15 @@ impl From<proto::Task> for Task {
                     (key, value.into())
                 })
                 .collect(),
-            variables: { p.variables.into_iter().map(Variable::from).collect() },
+            variables: p.variables,
             exec: p.exec.map(Exec::from),
         }
     }
 }
 
-impl From<Task> for proto::Task {
-    fn from(p: Task) -> Self {
-        proto::Task {
+impl From<TaskConfig> for proto::TaskConfig {
+    fn from(p: TaskConfig) -> Self {
+        proto::TaskConfig {
             id: p.id,
             description: p.description.unwrap_or_default(),
             image: p.image,
@@ -227,35 +195,8 @@ impl From<Task> for proto::Task {
                 .into_iter()
                 .map(|(key, value)| (key, proto::task::RequiredParentStatus::from(value) as i32))
                 .collect(),
-            variables: { p.variables.into_iter().map(|var| var.into()).collect() },
+            variables: p.variables,
             exec: p.exec.map(proto::Exec::from),
-        }
-    }
-}
-
-impl From<gofer_sdk::TaskConfig> for Task {
-    fn from(p: gofer_sdk::TaskConfig) -> Self {
-        Task {
-            id: p.id,
-            description: p.description,
-            image: p.image,
-            registry_auth: p.registry_auth.map(|ra| ra.into()),
-            depends_on: p
-                .depends_on
-                .into_iter()
-                .map(|(key, value)| (key, RequiredParentStatus::from(value)))
-                .collect(),
-            variables: {
-                p.variables
-                    .into_iter()
-                    .map(|(key, value)| Variable {
-                        key,
-                        value,
-                        owner: VariableOwner::User,
-                    })
-                    .collect()
-            },
-            exec: p.exec.map(|e| e.into()),
         }
     }
 }

@@ -3,13 +3,12 @@ mod validate;
 
 use crate::frontend;
 use crate::models;
-use crate::proto;
-use crate::proto::{
+use crate::storage;
+use crate::{conf, storage::StorageError};
+use proto::{
     gofer_server::{Gofer, GoferServer},
     *,
 };
-use crate::storage;
-use crate::{conf, storage::StorageError};
 
 use slog_scope::info;
 use std::time::{SystemTime, UNIX_EPOCH};

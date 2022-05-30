@@ -1,6 +1,4 @@
-use crate::models::Variable;
-use crate::proto;
-
+use super::Variable;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 

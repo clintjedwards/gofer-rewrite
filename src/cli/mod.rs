@@ -3,8 +3,8 @@ mod pipeline;
 mod service;
 
 use crate::conf::{self, cli::Config};
-use crate::proto::gofer_client::GoferClient;
 use clap::{Parser, Subcommand};
+use proto::gofer_client::GoferClient;
 use slog::o;
 use sloggers::terminal::{Destination, TerminalLoggerBuilder};
 use sloggers::types::Severity;

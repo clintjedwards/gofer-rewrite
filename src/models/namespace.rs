@@ -1,9 +1,8 @@
 use crate::models::epoch;
-use crate::proto;
 
 /// Represents a division of pipelines. Normally it is used to divide teams or logically different
 /// sections of workloads. This is the highest level unit.
-#[derive(sqlx::FromRow, Default, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Namespace {
     /// Unique user defined identifier.
     pub id: String,

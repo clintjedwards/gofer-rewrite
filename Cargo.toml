@@ -16,7 +16,6 @@ futures = "0.3.21"
 hyper = "0.14.18"
 lazy-regex = "2.3.0"
 mime_guess = "2.0.4"
-prost = "0.10.0"
 rust-embed = "6.3.0"                                                        # We embed the configuration files and frontend
 rustls-pemfile = "1.0.0"
 serde = "1.0.137"
@@ -34,6 +33,5 @@ tonic = { version = "0.7.1", features = ["tls", "transport", "tls-roots"] }
 tonic-reflection = "0.4.0"
 tower = "0.4.12"
 url = "2.2.2"
-
-[build-dependencies]
-tonic-build = "0.7.0"
+proto = { path = "./libs/proto" }
+gofer_sdk = { path = "./libs/gofer_sdk" }

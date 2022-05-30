@@ -1,9 +1,7 @@
 use super::CliHarness;
 use crate::cli::humanize_duration;
 use crate::models;
-use crate::proto;
 use clap::{Args, Subcommand};
-use colored::Colorize;
 use comfy_table::{presets::ASCII_MARKDOWN, Cell, CellAlignment, Color, ContentArrangement};
 use std::process;
 

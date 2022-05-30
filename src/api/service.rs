@@ -1,5 +1,5 @@
 use crate::api::Api;
-use crate::proto::gofer_server::GoferServer;
+use proto::gofer_server::GoferServer;
 
 use slog_scope::info;
 

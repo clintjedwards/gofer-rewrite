@@ -1,12 +1,12 @@
 use super::CliHarness;
 use crate::cli::humanize_duration;
-use crate::proto::{
-    CreateNamespaceRequest, DeleteNamespaceRequest, GetNamespaceRequest, ListNamespacesRequest,
-    UpdateNamespaceRequest,
-};
 use clap::{Args, Subcommand};
 use colored::Colorize;
 use comfy_table::{presets::ASCII_MARKDOWN, Cell, CellAlignment, Color, ContentArrangement};
+use proto::{
+    CreateNamespaceRequest, DeleteNamespaceRequest, GetNamespaceRequest, ListNamespacesRequest,
+    UpdateNamespaceRequest,
+};
 use std::process;
 
 #[derive(Debug, Args)]

@@ -1,5 +1,4 @@
-use crate::models::{epoch, PipelineConfig, Task, VariableOwner};
-use crate::proto;
+use super::{epoch, Task};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::{Display, EnumString};
@@ -107,7 +106,7 @@ impl From<Pipeline> for proto::Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(namespace: String, config: PipelineConfig) -> Self {
+    pub fn new(namespace: String, config: gofer_sdk::PipelineConfig) -> Self {
         Pipeline {
             namespace,
             id: config.id,
@@ -122,27 +121,17 @@ impl Pipeline {
             tasks: config
                 .tasks
                 .into_iter()
-                .map(|mut task| {
-                    task.variables = task
-                        .variables
-                        .into_iter()
-                        .map(|mut t| {
-                            t.owner = VariableOwner::User;
-                            t
-                        })
-                        .collect();
-                    (task.id.clone(), task)
-                })
+                .map(|task| (task.id.clone(), task.into()))
                 .collect(),
             triggers: config
                 .triggers
                 .into_iter()
-                .map(|trigger| (trigger.label.clone(), trigger))
+                .map(|trigger| (trigger.label.clone(), trigger.into()))
                 .collect(),
             notifiers: config
                 .notifiers
                 .into_iter()
-                .map(|notifier| (notifier.label.clone(), notifier))
+                .map(|notifier| (notifier.label.clone(), notifier.into()))
                 .collect(),
             store_keys: vec![],
         }
@@ -213,6 +202,17 @@ impl From<PipelineTriggerSettings> for proto::PipelineTriggerSettings {
     }
 }
 
+impl From<gofer_sdk::PipelineTriggerConfig> for PipelineTriggerSettings {
+    fn from(p: gofer_sdk::PipelineTriggerConfig) -> Self {
+        Self {
+            kind: p.kind,
+            label: p.label,
+            settings: p.settings,
+            error: None,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PipelineNotifierSettings {
     /// A global unique identifier for the notifier type.
@@ -269,6 +269,17 @@ impl From<PipelineNotifierSettings> for proto::PipelineNotifierSettings {
                 Some(error) => error,
                 None => "".to_string(),
             },
+        }
+    }
+}
+
+impl From<gofer_sdk::PipelineNotifierConfig> for PipelineNotifierSettings {
+    fn from(p: gofer_sdk::PipelineNotifierConfig) -> Self {
+        Self {
+            kind: p.kind,
+            label: p.label,
+            settings: p.settings,
+            error: None,
         }
     }
 }
