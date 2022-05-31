@@ -106,7 +106,7 @@ impl From<Pipeline> for gofer_proto::Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(namespace: String, config: gofer_sdk::PipelineConfig) -> Self {
+    pub fn new(namespace: String, config: gofer_sdk::config::Pipeline) -> Self {
         Pipeline {
             namespace,
             id: config.id,
@@ -202,8 +202,8 @@ impl From<PipelineTriggerSettings> for gofer_proto::PipelineTriggerSettings {
     }
 }
 
-impl From<gofer_sdk::PipelineTriggerConfig> for PipelineTriggerSettings {
-    fn from(p: gofer_sdk::PipelineTriggerConfig) -> Self {
+impl From<gofer_sdk::config::PipelineTriggerConfig> for PipelineTriggerSettings {
+    fn from(p: gofer_sdk::config::PipelineTriggerConfig) -> Self {
         Self {
             kind: p.kind,
             label: p.label,
@@ -273,8 +273,8 @@ impl From<PipelineNotifierSettings> for gofer_proto::PipelineNotifierSettings {
     }
 }
 
-impl From<gofer_sdk::PipelineNotifierConfig> for PipelineNotifierSettings {
-    fn from(p: gofer_sdk::PipelineNotifierConfig) -> Self {
+impl From<gofer_sdk::config::PipelineNotifierConfig> for PipelineNotifierSettings {
+    fn from(p: gofer_sdk::config::PipelineNotifierConfig) -> Self {
         Self {
             kind: p.kind,
             label: p.label,

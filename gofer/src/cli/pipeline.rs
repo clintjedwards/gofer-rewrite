@@ -34,6 +34,9 @@ pub enum PipelineCommands {
     /// Detail pipeline by id.
     Get { id: String },
 
+    /// Start executing a pipeline.
+    Run { id: String },
+
     /// Update a new pipeline.
     ///
     /// Updating a pipeline requires a pipeline configuration file. You can find documentation on
@@ -45,7 +48,7 @@ pub enum PipelineCommands {
         path: String,
     },
 
-    /// Delete a pipeline.
+    /// Delete pipeline by id.
     Delete { id: String },
 }
 

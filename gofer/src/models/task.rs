@@ -1,4 +1,5 @@
 use crate::models::{Variable, VariableOwner};
+use gofer_sdk::config;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
 
@@ -32,13 +33,13 @@ impl From<RequiredParentStatus> for gofer_proto::task::RequiredParentStatus {
     }
 }
 
-impl From<gofer_sdk::RequiredParentStatus> for RequiredParentStatus {
-    fn from(r: gofer_sdk::RequiredParentStatus) -> Self {
+impl From<config::RequiredParentStatus> for RequiredParentStatus {
+    fn from(r: config::RequiredParentStatus) -> Self {
         match r {
-            gofer_sdk::RequiredParentStatus::Unknown => RequiredParentStatus::Unknown,
-            gofer_sdk::RequiredParentStatus::Any => RequiredParentStatus::Any,
-            gofer_sdk::RequiredParentStatus::Success => RequiredParentStatus::Success,
-            gofer_sdk::RequiredParentStatus::Failure => RequiredParentStatus::Failure,
+            config::RequiredParentStatus::Unknown => RequiredParentStatus::Unknown,
+            config::RequiredParentStatus::Any => RequiredParentStatus::Any,
+            config::RequiredParentStatus::Success => RequiredParentStatus::Success,
+            config::RequiredParentStatus::Failure => RequiredParentStatus::Failure,
         }
     }
 }
@@ -81,8 +82,8 @@ impl From<RegistryAuth> for gofer_proto::RegistryAuth {
     }
 }
 
-impl From<gofer_sdk::RegistryAuth> for RegistryAuth {
-    fn from(p: gofer_sdk::RegistryAuth) -> Self {
+impl From<config::RegistryAuth> for RegistryAuth {
+    fn from(p: config::RegistryAuth) -> Self {
         RegistryAuth {
             user: p.user,
             pass: p.pass,
@@ -114,8 +115,8 @@ impl From<Exec> for gofer_proto::Exec {
     }
 }
 
-impl From<gofer_sdk::Exec> for Exec {
-    fn from(p: gofer_sdk::Exec) -> Self {
+impl From<config::Exec> for Exec {
+    fn from(p: config::Exec) -> Self {
         Exec {
             shell: p.shell,
             script: p.script,
@@ -238,8 +239,8 @@ impl From<Task> for gofer_proto::Task {
     }
 }
 
-impl From<gofer_sdk::TaskConfig> for Task {
-    fn from(p: gofer_sdk::TaskConfig) -> Self {
+impl From<config::Task> for Task {
+    fn from(p: config::Task) -> Self {
         Task {
             id: p.id,
             description: p.description,
