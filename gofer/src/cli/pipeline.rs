@@ -1,15 +1,19 @@
 use super::CliHarness;
-use crate::cli::humanize_duration;
+use crate::cli::{humanize_duration, init_spinner, DEFAULT_NAMESPACE};
 use crate::models;
+use anyhow::{anyhow, Context, Result};
 use clap::{Args, Subcommand};
+use colored::Colorize;
 use comfy_table::{presets::ASCII_MARKDOWN, Cell, CellAlignment, Color, ContentArrangement};
-use std::process;
+use indicatif::{ProgressBar, ProgressStyle};
+use std::io::{BufRead, BufReader, Read};
+use std::{path::PathBuf, process};
 
 #[derive(Debug, Args)]
 pub struct PipelineSubcommands {
     /// Set namespace for command to act upon.
     #[clap(long)]
-    namespace: Option<String>,
+    pub namespace: Option<String>,
 
     #[clap(subcommand)]
     pub command: PipelineCommands,
@@ -27,7 +31,6 @@ pub enum PipelineCommands {
     /// [here](https://clintjedwards.com/gofer/docs/getting-started/first-steps/generate-pipeline-config).
     Create {
         /// Path to a pipeline configuration file.
-        #[clap(short, long)]
         path: String,
     },
 
@@ -44,7 +47,6 @@ pub enum PipelineCommands {
     /// [here](https://clintjedwards.com/gofer/docs/getting-started/first-steps/generate-pipeline-config).
     Update {
         /// Path to a pipeline configuration file.
-        #[clap(short, long)]
         path: String,
     },
 
@@ -53,7 +55,7 @@ pub enum PipelineCommands {
 }
 
 impl CliHarness {
-    pub async fn pipeline_list(&self, namespace: Option<String>) {
+    pub async fn pipeline_list(&self) {
         let mut client = match self.connect().await {
             Ok(client) => client,
             Err(e) => {
@@ -63,7 +65,11 @@ impl CliHarness {
         };
 
         let request = tonic::Request::new(gofer_proto::ListPipelinesRequest {
-            namespace_id: namespace.unwrap_or_else(|| self.config.namespace.clone()),
+            namespace_id: self
+                .config
+                .namespace
+                .clone()
+                .unwrap_or_else(|| DEFAULT_NAMESPACE.to_string()),
             offset: 0,
             limit: 0,
         });
@@ -118,30 +124,159 @@ impl CliHarness {
         println!("{table}",);
     }
 
-    pub async fn pipeline_create(&self, namespace: Option<String>, pipeline_config: &str) {
+    /// The ability to create and manage pipelines is a huge selling point for Gofer.
+    /// In the pursuit of making this as easy as possible we allow the user to use rust
+    /// as a way to generate and manage their pipeline configurations. For that to work
+    /// though we have to be able to compile and run programs which implement the sdk and
+    /// then collect the output.
+    pub async fn pipeline_create(&self, path: &str) {
+        let spinner = init_spinner();
+        spinner.set_message("Creating pipeline");
+
+        // Figure out absolute path for any given path string.
+        let path = PathBuf::from(path);
+        let full_path = match path.canonicalize() {
+            Ok(path) => path,
+            Err(e) => {
+                spinner.finish_and_clear();
+                println!(
+                    "{} Could not determine full path for '{}'; {}",
+                    "x".red(),
+                    path.to_string_lossy(),
+                    e
+                );
+                process::exit(1);
+            }
+        };
+        let full_path = full_path.to_string_lossy();
+
+        // Spawn the relevant binary to build the configuration and collect
+        // the output.
+        // The stderr we use as status markers since they mostly stem from
+        // the build tool's debug output.
+        // The stdout we use as the final output and attempt to parse that.
+        let mut cmd = match process::Command::new("cargo")
+            .args(["run", &format!("--manifest-path={full_path}/Cargo.toml")])
+            .stderr(process::Stdio::piped())
+            .stdout(process::Stdio::piped())
+            .spawn()
+        {
+            Ok(cmd) => cmd,
+            Err(e) => {
+                spinner.finish_and_clear();
+                println!(
+                    "{} Could not run build command for target config '{}'; {}",
+                    "x".red(),
+                    full_path,
+                    e
+                );
+                process::exit(1);
+            }
+        };
+
+        // Print out the stderr as status markers
+        let stderr = cmd.stderr.take().unwrap();
+        let stderr_reader = BufReader::new(stderr).lines();
+
+        for line in stderr_reader {
+            let line = line.unwrap();
+            spinner.set_message({
+                let mut status_line = format!("Building pipeline config: {}", line.trim());
+                status_line.truncate(80);
+                status_line
+            });
+        }
+
+        let exit_status = match cmd.wait() {
+            Ok(status) => status,
+            Err(e) => {
+                spinner.finish_and_clear();
+                println!(
+                    "{} Could not run build command for target config; {}",
+                    "x".red(),
+                    e
+                );
+                process::exit(1);
+            }
+        };
+
+        if !exit_status.success() {
+            let mut output = String::from("");
+            cmd.stderr.unwrap().read_to_string(&mut output).unwrap();
+
+            spinner.finish_and_clear();
+            println!(
+                "{} Could not run build command for target config; {}",
+                "x".red(),
+                output
+            );
+            process::exit(1);
+        }
+
+        spinner.set_message("Parsing pipeline config");
+
+        let mut output = "".to_string();
+        cmd.stdout.unwrap().read_to_string(&mut output).unwrap();
+
+        let config: gofer_sdk::config::Pipeline = match serde_json::from_str(&output) {
+            Ok(config) => config,
+            Err(e) => {
+                spinner.finish_and_clear();
+                println!("{} Could not parse pipeline config; {}", "x".red(), e);
+                process::exit(1);
+            }
+        };
+
+        spinner.set_message("Creating pipeline config");
+
         let mut client = match self.connect().await {
             Ok(client) => client,
             Err(e) => {
-                eprintln!("Command failed; {}", e);
+                spinner.finish_and_clear();
+                println!("{} Could not create pipeline; {}", "x".red(), e);
                 process::exit(1);
             }
         };
 
         let request = tonic::Request::new(gofer_proto::CreatePipelineRequest {
-            namespace_id: namespace.unwrap_or_else(|| self.config.namespace.clone()),
-            pipeline_config: None,
+            namespace_id: self
+                .config
+                .namespace
+                .clone()
+                .unwrap_or_else(|| DEFAULT_NAMESPACE.to_string()),
+            pipeline_config: Some(config.into()),
         });
         let response = match client.create_pipeline(request).await {
             Ok(response) => response.into_inner(),
             Err(e) => {
-                eprintln!("Command failed; {}", e.message());
+                spinner.finish_and_clear();
+                println!("{} Could not create pipeline; {}", "x".red(), e);
                 process::exit(1);
             }
         };
 
-        let pipeline = response.pipeline.unwrap();
+        let created_pipeline = response.pipeline.unwrap();
 
-        println!("Created pipeline: [{}] {}", pipeline.id, pipeline.name);
+        spinner.finish_and_clear();
+
+        println!(
+            "{} Created pipeline: [{}] {}",
+            "✓".green(),
+            created_pipeline.id.green(),
+            created_pipeline.name
+        );
+        println!(
+            "  View details of your new pipeline: {}",
+            format!("gofer pipeline get {}", created_pipeline.id)
+                .dimmed()
+                .yellow()
+        );
+        println!(
+            "  Start a new run: {}",
+            format!("gofer pipeline run {}", created_pipeline.id)
+                .dimmed()
+                .yellow()
+        );
     }
 
     //     pub async fn pipeline_get(&self, namespace: Option<String>, id: &str) {

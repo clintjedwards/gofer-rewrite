@@ -5,6 +5,7 @@ mod service;
 use crate::conf::{self, cli::Config};
 use clap::{Parser, Subcommand};
 use gofer_proto::gofer_client::GoferClient;
+use indicatif::{ProgressBar, ProgressStyle};
 use slog::o;
 use sloggers::terminal::{Destination, TerminalLoggerBuilder};
 use sloggers::types::Severity;
@@ -36,11 +37,21 @@ struct Cli {
     command: Commands,
 }
 
+const DEFAULT_NAMESPACE: &str = "default";
+
 struct CliHarness {
     config: Config,
 }
 
 impl CliHarness {
+    /// Allows for injecting the default namespace into the configuration,
+    /// so that there is still a single place to look up CLI state but we
+    /// properly overwrite what the default namespace should be.
+    /// Flags always get final priority over all other configuration types.
+    fn default_namespace(&mut self, namespace: &str) {
+        self.config.namespace = Some(namespace.to_string());
+    }
+
     async fn connect(&self) -> Result<GoferClient<Channel>, Box<dyn Error>> {
         let parsed_url = Url::parse(&self.config.server).unwrap();
         let domain_name = parsed_url.host_str().unwrap();
@@ -64,6 +75,9 @@ enum Commands {
 
     /// Manages namespace related commands. Most commands are admin only.
     Namespace(namespace::NamespaceSubcommands),
+
+    /// Manages pipeline related commands.
+    Pipeline(pipeline::PipelineSubcommands),
 }
 
 fn init_logging(severity: Severity) -> slog_scope::GlobalLoggerGuard {
@@ -95,6 +109,16 @@ fn humanize_duration(time: i64) -> String {
     chrono_humanize::HumanTime::from(time_diff_duration).to_string()
 }
 
+fn init_spinner() -> ProgressBar {
+    let spinner = ProgressBar::new_spinner();
+    spinner.enable_steady_tick(80);
+    spinner.set_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
+    );
+    spinner
+}
+
 /// init the CLI and appropriately run the correct command.
 pub async fn init() {
     let args = Cli::parse();
@@ -109,7 +133,7 @@ pub async fn init() {
         }
     };
 
-    let cli = CliHarness { config };
+    let mut cli = CliHarness { config };
 
     match args.command {
         Commands::Service(service) => {
@@ -163,6 +187,21 @@ pub async fn init() {
                 namespace::NamespaceCommands::Delete { id } => {
                     cli.namespace_delete(&id).await;
                 }
+            }
+        }
+        Commands::Pipeline(pipeline) => {
+            let pipeline_cmds = pipeline.command;
+
+            if let Some(namespace) = pipeline.namespace {
+                cli.default_namespace(&namespace);
+            }
+
+            match pipeline_cmds {
+                pipeline::PipelineCommands::List => {
+                    cli.pipeline_list().await;
+                }
+                pipeline::PipelineCommands::Create { path } => cli.pipeline_create(&path).await,
+                _ => todo!(),
             }
         }
     }

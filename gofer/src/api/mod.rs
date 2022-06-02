@@ -192,6 +192,10 @@ impl Gofer for Api {
     ) -> Result<Response<ListPipelinesResponse>, Status> {
         let args = &request.into_inner();
 
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
+
         let result = self
             .storage
             .list_pipelines(args.offset as u64, args.limit as u64, &args.namespace_id)
@@ -214,6 +218,10 @@ impl Gofer for Api {
         request: Request<CreatePipelineRequest>,
     ) -> Result<Response<CreatePipelineResponse>, Status> {
         let args = &request.into_inner();
+
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
 
         let pipeline_config = match &args.pipeline_config {
             Some(config) => config,
@@ -253,6 +261,16 @@ impl Gofer for Api {
     ) -> Result<Response<GetPipelineResponse>, Status> {
         let args = &request.into_inner();
 
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
+
+        if args.id.is_empty() {
+            return Err(Status::failed_precondition(
+                "must include target pipeline id",
+            ));
+        }
+
         let result = self
             .storage
             .get_pipeline(&args.namespace_id, &args.id)
@@ -281,6 +299,16 @@ impl Gofer for Api {
     ) -> Result<Response<EnablePipelineResponse>, Status> {
         let args = &request.into_inner();
 
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
+
+        if args.id.is_empty() {
+            return Err(Status::failed_precondition(
+                "must include target pipeline id",
+            ));
+        }
+
         let result = self
             .storage
             .update_pipeline_state(&args.namespace_id, &args.id, models::PipelineState::Active)
@@ -306,6 +334,16 @@ impl Gofer for Api {
         request: Request<DisablePipelineRequest>,
     ) -> Result<Response<DisablePipelineResponse>, Status> {
         let args = &request.into_inner();
+
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
+
+        if args.id.is_empty() {
+            return Err(Status::failed_precondition(
+                "must include target pipeline id",
+            ));
+        }
 
         let result = self
             .storage
@@ -336,6 +374,10 @@ impl Gofer for Api {
         request: Request<UpdatePipelineRequest>,
     ) -> Result<Response<UpdatePipelineResponse>, Status> {
         let args = &request.into_inner();
+
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
 
         let pipeline_config = match &args.pipeline_config {
             Some(config) => config,
@@ -373,6 +415,16 @@ impl Gofer for Api {
         request: Request<DeletePipelineRequest>,
     ) -> Result<Response<DeletePipelineResponse>, Status> {
         let args = &request.into_inner();
+
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
+
+        if args.id.is_empty() {
+            return Err(Status::failed_precondition(
+                "must include target pipeline id",
+            ));
+        }
 
         let result = self
             .storage

@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
 
+use crate::{validate_identifier, ConfigError};
+
+#[must_use = "complete pipeline config with the .finish() method"]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Pipeline {
     /// Unique user defined identifier.
@@ -67,6 +70,24 @@ impl Pipeline {
         }
     }
 
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        validate_identifier("id", &self.id)?;
+
+        for task in &self.tasks {
+            task.validate()?;
+        }
+
+        for trigger in &self.triggers {
+            trigger.validate()?;
+        }
+
+        for notifier in &self.notifiers {
+            notifier.validate()?;
+        }
+
+        Ok(())
+    }
+
     pub fn description(mut self, description: &str) -> Self {
         self.description = Some(description.to_string());
         self
@@ -92,8 +113,13 @@ impl Pipeline {
         self
     }
 
-    pub fn finish(self) {
-        println!("{}", serde_json::to_string(&self).unwrap())
+    pub fn finish(self) -> Result<(), ConfigError> {
+        self.validate()?;
+        println!(
+            "{}",
+            serde_json::to_string(&self).map_err(|e| ConfigError::Parsing(e.to_string()))?
+        );
+        Ok(())
     }
 }
 
@@ -119,6 +145,11 @@ impl PipelineTriggerConfig {
             label: label.to_string(),
             settings: HashMap::new(),
         }
+    }
+
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        validate_identifier("label", &self.label)?;
+        Ok(())
     }
 
     pub fn settings(mut self, settings: HashMap<String, String>) -> Self {
@@ -165,6 +196,11 @@ impl PipelineNotifierConfig {
             label: label.to_string(),
             settings: HashMap::new(),
         }
+    }
+
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        validate_identifier("label", &self.label)?;
+        Ok(())
     }
 
     pub fn settings(mut self, settings: HashMap<String, String>) -> Self {
@@ -309,6 +345,11 @@ impl Task {
         }
     }
 
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        validate_identifier("id", &self.id)?;
+        Ok(())
+    }
+
     pub fn description(mut self, description: &str) -> Self {
         self.description = Some(description.to_string());
         self
@@ -407,6 +448,7 @@ mod tests {
         Pipeline::new("simple_pipeline", "Simple Pipeline")
             .description("Test Description")
             .tasks(vec![])
-            .finish();
+            .finish()
+            .expect("config failed");
     }
 }

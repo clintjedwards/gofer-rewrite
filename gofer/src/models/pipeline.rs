@@ -7,7 +7,6 @@ use strum::{Display, EnumString};
 #[derive(Debug, Display, EnumString, Serialize, Deserialize)]
 pub enum PipelineState {
     /// The state of the pipeline is unknown. This should never happen.
-    #[allow(dead_code)]
     Unknown,
     /// Pipeline is enabled and able to start runs.
     Active,

@@ -14,3 +14,7 @@
   - the ability to alter configuration and write it back to the file.
 - Create a namespace set command that allows the user to switch between namespaces and save it in their configuration file.
 - Document/Comment all libraries
+- Because of the way pipelines work now it is possible to write your pipeline in any language
+  as long as we have a way to run the native compiler.
+- We can potentially auto detect languages by looking for auto language structure.
+- We can also just straight up read from things like json/toml since it all compiles back to json anyway.

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.57"
 axum = "0.5.4"
 axum-server = { version = "0.4.0", features = ["tls-rustls"] }
 chrono = "0.4.19"
@@ -15,6 +16,7 @@ config = "0.13.0"
 futures = "0.3.21"
 hyper = "0.14.18"
 lazy-regex = "2.3.0"
+indicatif = "0.16.2"
 mime_guess = "2.0.4"
 rust-embed = "6.3.0"                                                        # We embed the configuration files and frontend
 rustls-pemfile = "1.0.0"
