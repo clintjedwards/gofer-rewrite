@@ -1,11 +1,13 @@
 mod namespace;
 mod pipeline;
 mod service;
+mod spinner;
+
+pub use self::spinner::*;
 
 use crate::conf::{self, cli::Config};
 use clap::{Parser, Subcommand};
 use gofer_proto::gofer_client::GoferClient;
-use indicatif::{ProgressBar, ProgressStyle};
 use slog::o;
 use sloggers::terminal::{Destination, TerminalLoggerBuilder};
 use sloggers::types::Severity;
@@ -107,16 +109,6 @@ fn humanize_duration(time: i64) -> String {
     let time_diff = time - epoch() as i64;
     let time_diff_duration = chrono::Duration::milliseconds(time_diff);
     chrono_humanize::HumanTime::from(time_diff_duration).to_string()
-}
-
-fn init_spinner() -> ProgressBar {
-    let spinner = ProgressBar::new_spinner();
-    spinner.enable_steady_tick(80);
-    spinner.set_style(
-        ProgressStyle::default_spinner()
-            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-    );
-    spinner
 }
 
 /// init the CLI and appropriately run the correct command.
