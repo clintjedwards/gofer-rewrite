@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS pipeline_trigger_settings (
     settings  TEXT NOT NULL,
     error     TEXT,
     FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
-    FOREIGN KEY (pipeline) REFERENCES pipelines(id) ON DELETE CASCADE,
+    FOREIGN KEY (namespace, pipeline) REFERENCES pipelines(namespace, id) ON DELETE CASCADE,
     PRIMARY KEY (namespace, pipeline, label)
 ) STRICT;
 
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS pipeline_notifier_settings (
     settings  TEXT NOT NULL,
     error     TEXT,
     FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
-    FOREIGN KEY (pipeline) REFERENCES pipelines(id) ON DELETE CASCADE,
+    FOREIGN KEY (namespace, pipeline) REFERENCES pipelines(namespace, id) ON DELETE CASCADE,
     PRIMARY KEY (namespace, pipeline, label)
 ) STRICT;
 
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS runs (
     variables    TEXT    NOT NULL,
     store_info   TEXT,
     FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
-    FOREIGN KEY (pipeline) REFERENCES pipelines(id) ON DELETE CASCADE,
+    FOREIGN KEY (namespace, pipeline) REFERENCES pipelines(namespace, id) ON DELETE CASCADE,
     PRIMARY KEY (namespace, pipeline, id)
 ) STRICT;
 
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     variables     TEXT NOT NULL,
     exec          TEXT,
     FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
-    FOREIGN KEY (pipeline) REFERENCES pipelines(id) ON DELETE CASCADE,
+    FOREIGN KEY (namespace, pipeline) REFERENCES pipelines(namespace, id) ON DELETE CASCADE,
     PRIMARY KEY (namespace, pipeline, id)
 ) STRICT;
 

@@ -183,7 +183,9 @@ pub async fn init() {
                 pipeline::PipelineCommands::List => cli.pipeline_list().await,
                 pipeline::PipelineCommands::Create { path } => cli.pipeline_create(&path).await,
                 pipeline::PipelineCommands::Get { id } => cli.pipeline_get(&id).await,
-                pipeline::PipelineCommands::Run { id } => cli.pipeline_run(&id).await,
+                pipeline::PipelineCommands::Run { id, variables } => {
+                    cli.pipeline_run(&id, variables).await
+                }
                 pipeline::PipelineCommands::Update { path } => cli.pipeline_update(&path).await,
                 pipeline::PipelineCommands::Delete { id } => cli.pipeline_delete(&id).await,
             }

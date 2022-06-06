@@ -20,3 +20,5 @@
 - We can also just straight up read from things like json/toml since it all compiles back to json anyway.
 - Fix this regression: {{- if not (len $trigger.Events) 0 }} recent events:{{- end }} in pipeline get
 - Fix events for all cli stuff.
+- We should be more detailed on some of the parameters in proto, instead of 'id' use 'pipeline_id'
+- IN our integration testing test that cascading deletes works

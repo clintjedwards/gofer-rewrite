@@ -409,9 +409,12 @@ pub struct RunPipelineRequest {
     /// Unique namespace identifier
     #[prost(string, tag="1")]
     pub namespace_id: ::prost::alloc::string::String,
-    /// Unique identifier
     #[prost(string, tag="2")]
     pub id: ::prost::alloc::string::String,
+    /// variables allows for the replacement of task environment variables, it
+    /// overrides all other environment variables if there is a name collision.
+    #[prost(map="string, string", tag="3")]
+    pub variables: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunPipelineResponse {
@@ -479,6 +482,129 @@ pub struct DeletePipelineRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeletePipelineResponse {
+}
+////////////// Runs Transport Models //////////////
+
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetRunRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    /// Run ID
+    #[prost(int64, tag="3")]
+    pub id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetRunResponse {
+    #[prost(message, optional, tag="1")]
+    pub run: ::core::option::Option<Run>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BatchGetRunsRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    /// Run IDs
+    #[prost(int64, repeated, tag="3")]
+    pub ids: ::prost::alloc::vec::Vec<i64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BatchGetRunsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub runs: ::prost::alloc::vec::Vec<Run>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListRunsRequest {
+    /// offset is a pagination parameter that defines where to start when
+    /// counting the list of pipelines to return
+    #[prost(int64, tag="1")]
+    pub offset: i64,
+    /// limit is a pagination parameter that defines how many pipelines to return
+    /// per result.
+    #[prost(int64, tag="2")]
+    pub limit: i64,
+    /// Unique namespace identifier
+    #[prost(string, tag="3")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub pipeline_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListRunsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub runs: ::prost::alloc::vec::Vec<Run>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StartRunRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    /// variables allows for the replacement of task environment variables, it
+    /// overrides all other environment variables if there is a name collision.
+    #[prost(map="string, string", tag="3")]
+    pub variables: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StartRunResponse {
+    #[prost(message, optional, tag="1")]
+    pub run: ::core::option::Option<Run>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RetryRunRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    /// Run ID
+    #[prost(int64, tag="3")]
+    pub id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RetryRunResponse {
+    #[prost(message, optional, tag="1")]
+    pub run: ::core::option::Option<Run>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CancelRunRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    /// Run ID
+    #[prost(int64, tag="3")]
+    pub id: i64,
+    /// force will cause Gofer to hard kill any outstanding task run containers.
+    /// Usually this means that the container receives a SIGKILL.
+    #[prost(bool, tag="4")]
+    pub force: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CancelRunResponse {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CancelAllRunsRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    /// force will cause Gofer to hard kill any outstanding task run containers.
+    /// Usually this means that the container receives a SIGKILL.
+    #[prost(bool, tag="3")]
+    pub force: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CancelAllRunsResponse {
+    #[prost(int64, repeated, tag="1")]
+    pub runs: ::prost::alloc::vec::Vec<i64>,
 }
 /// Generated client implementations.
 pub mod gofer_client {
@@ -831,6 +957,144 @@ pub mod gofer_client {
             );
             self.inner.unary(request.into_request(), path, codec).await
         }
+        /// GetRun returns the details of a single run.
+        pub async fn get_run(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetRunRequest>,
+        ) -> Result<tonic::Response<super::GetRunResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/GetRun");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// BatchGetRuns returns multiple runs by ID.
+        pub async fn batch_get_runs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::BatchGetRunsRequest>,
+        ) -> Result<tonic::Response<super::BatchGetRunsResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/BatchGetRuns");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// ListRuns returns a list of all runs by Pipeline ID. Pagination can be
+        /// controlled via the offset and limit parameters of the request.
+        pub async fn list_runs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListRunsRequest>,
+        ) -> Result<tonic::Response<super::ListRunsResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/ListRuns");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// StartRun starts a new run for the given pipeline. Pipelines that are
+        /// started via API are marked as such. This RPC has the ability to choose to
+        /// only run a subset of a pipeline via the "only" flag. Which is not possible
+        /// via a trigger.
+        pub async fn start_run(
+            &mut self,
+            request: impl tonic::IntoRequest<super::StartRunRequest>,
+        ) -> Result<tonic::Response<super::StartRunResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/StartRun");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// RetryRun simply takes the vars and settings from a previous run and re-uses
+        /// those to launch a new run. Useful for if you want the exact settings from a
+        /// previous run.
+        pub async fn retry_run(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RetryRunRequest>,
+        ) -> Result<tonic::Response<super::RetryRunResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/RetryRun");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// CancelRun stops the execution of a run in progress. Any task runs that
+        /// might have been running at the time Are ask to stop gracefully(SIGINT)
+        /// unless the force parameter is used, in which case the task runs are stopped
+        /// instantly(SIGKILL) and the run is cancelled.
+        pub async fn cancel_run(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CancelRunRequest>,
+        ) -> Result<tonic::Response<super::CancelRunResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/CancelRun");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// CancelAllRuns stops the execution of any in-progress runs for a specific
+        /// pipeline by ID.
+        pub async fn cancel_all_runs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CancelAllRunsRequest>,
+        ) -> Result<tonic::Response<super::CancelAllRunsResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/CancelAllRuns",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -923,6 +1187,51 @@ pub mod gofer_server {
             &self,
             request: tonic::Request<super::DeletePipelineRequest>,
         ) -> Result<tonic::Response<super::DeletePipelineResponse>, tonic::Status>;
+        /// GetRun returns the details of a single run.
+        async fn get_run(
+            &self,
+            request: tonic::Request<super::GetRunRequest>,
+        ) -> Result<tonic::Response<super::GetRunResponse>, tonic::Status>;
+        /// BatchGetRuns returns multiple runs by ID.
+        async fn batch_get_runs(
+            &self,
+            request: tonic::Request<super::BatchGetRunsRequest>,
+        ) -> Result<tonic::Response<super::BatchGetRunsResponse>, tonic::Status>;
+        /// ListRuns returns a list of all runs by Pipeline ID. Pagination can be
+        /// controlled via the offset and limit parameters of the request.
+        async fn list_runs(
+            &self,
+            request: tonic::Request<super::ListRunsRequest>,
+        ) -> Result<tonic::Response<super::ListRunsResponse>, tonic::Status>;
+        /// StartRun starts a new run for the given pipeline. Pipelines that are
+        /// started via API are marked as such. This RPC has the ability to choose to
+        /// only run a subset of a pipeline via the "only" flag. Which is not possible
+        /// via a trigger.
+        async fn start_run(
+            &self,
+            request: tonic::Request<super::StartRunRequest>,
+        ) -> Result<tonic::Response<super::StartRunResponse>, tonic::Status>;
+        /// RetryRun simply takes the vars and settings from a previous run and re-uses
+        /// those to launch a new run. Useful for if you want the exact settings from a
+        /// previous run.
+        async fn retry_run(
+            &self,
+            request: tonic::Request<super::RetryRunRequest>,
+        ) -> Result<tonic::Response<super::RetryRunResponse>, tonic::Status>;
+        /// CancelRun stops the execution of a run in progress. Any task runs that
+        /// might have been running at the time Are ask to stop gracefully(SIGINT)
+        /// unless the force parameter is used, in which case the task runs are stopped
+        /// instantly(SIGKILL) and the run is cancelled.
+        async fn cancel_run(
+            &self,
+            request: tonic::Request<super::CancelRunRequest>,
+        ) -> Result<tonic::Response<super::CancelRunResponse>, tonic::Status>;
+        /// CancelAllRuns stops the execution of any in-progress runs for a specific
+        /// pipeline by ID.
+        async fn cancel_all_runs(
+            &self,
+            request: tonic::Request<super::CancelAllRunsRequest>,
+        ) -> Result<tonic::Response<super::CancelAllRunsResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct GoferServer<T: Gofer> {
@@ -1516,6 +1825,266 @@ pub mod gofer_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = DeletePipelineSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/GetRun" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetRunSvc<T: Gofer>(pub Arc<T>);
+                    impl<T: Gofer> tonic::server::UnaryService<super::GetRunRequest>
+                    for GetRunSvc<T> {
+                        type Response = super::GetRunResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetRunRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).get_run(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetRunSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/BatchGetRuns" => {
+                    #[allow(non_camel_case_types)]
+                    struct BatchGetRunsSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::BatchGetRunsRequest>
+                    for BatchGetRunsSvc<T> {
+                        type Response = super::BatchGetRunsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::BatchGetRunsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).batch_get_runs(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = BatchGetRunsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/ListRuns" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListRunsSvc<T: Gofer>(pub Arc<T>);
+                    impl<T: Gofer> tonic::server::UnaryService<super::ListRunsRequest>
+                    for ListRunsSvc<T> {
+                        type Response = super::ListRunsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListRunsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).list_runs(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = ListRunsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/StartRun" => {
+                    #[allow(non_camel_case_types)]
+                    struct StartRunSvc<T: Gofer>(pub Arc<T>);
+                    impl<T: Gofer> tonic::server::UnaryService<super::StartRunRequest>
+                    for StartRunSvc<T> {
+                        type Response = super::StartRunResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::StartRunRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).start_run(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = StartRunSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/RetryRun" => {
+                    #[allow(non_camel_case_types)]
+                    struct RetryRunSvc<T: Gofer>(pub Arc<T>);
+                    impl<T: Gofer> tonic::server::UnaryService<super::RetryRunRequest>
+                    for RetryRunSvc<T> {
+                        type Response = super::RetryRunResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RetryRunRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).retry_run(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = RetryRunSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/CancelRun" => {
+                    #[allow(non_camel_case_types)]
+                    struct CancelRunSvc<T: Gofer>(pub Arc<T>);
+                    impl<T: Gofer> tonic::server::UnaryService<super::CancelRunRequest>
+                    for CancelRunSvc<T> {
+                        type Response = super::CancelRunResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CancelRunRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).cancel_run(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = CancelRunSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/CancelAllRuns" => {
+                    #[allow(non_camel_case_types)]
+                    struct CancelAllRunsSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::CancelAllRunsRequest>
+                    for CancelAllRunsSvc<T> {
+                        type Response = super::CancelAllRunsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CancelAllRunsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).cancel_all_runs(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = CancelAllRunsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

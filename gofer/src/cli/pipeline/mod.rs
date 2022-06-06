@@ -36,7 +36,7 @@ pub enum PipelineCommands {
     Get { id: String },
 
     /// Start executing a pipeline.
-    Run { id: String },
+    Run { id: String, variables: Vec<String> },
 
     /// Update a new pipeline.
     ///

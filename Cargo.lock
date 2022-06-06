@@ -777,6 +777,7 @@ dependencies = [
  "indicatif",
  "lazy-regex",
  "mime_guess",
+ "rand",
  "rust-embed",
  "rustls-pemfile",
  "serde",

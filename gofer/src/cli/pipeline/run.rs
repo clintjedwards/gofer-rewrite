@@ -1,10 +1,25 @@
 use super::super::CliHarness;
 use crate::cli::DEFAULT_NAMESPACE;
 use colored::Colorize;
-use std::process;
+use std::{collections::HashMap, process};
 
 impl CliHarness {
-    pub async fn pipeline_run(&self, id: &str) {
+    pub async fn pipeline_run(&self, id: &str, variables: Vec<String>) {
+        let vars: HashMap<String, String> = variables
+            .into_iter()
+            .map(|var| {
+                let split_var: Vec<&str> = var.split("=").collect();
+                if split_var.len() != 2 {
+                    eprintln!(
+                        "Variable parsing error for var '{}'; must be in form my_key=my_var",
+                        var
+                    );
+                    process::exit(1);
+                }
+                (split_var[0].to_string(), split_var[1].to_string())
+            })
+            .collect();
+
         let mut client = match self.connect().await {
             Ok(client) => client,
             Err(e) => {
@@ -20,6 +35,7 @@ impl CliHarness {
                 .clone()
                 .unwrap_or_else(|| DEFAULT_NAMESPACE.to_string()),
             id: id.to_string(),
+            variables: vars,
         });
         let response = match client.run_pipeline(request).await {
             Ok(response) => response.into_inner(),

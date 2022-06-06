@@ -72,4 +72,42 @@ service Gofer {
 
   // DeletePipeline deletes a pipeline permenantly. It is not recoverable.
   rpc DeletePipeline(DeletePipelineRequest) returns (DeletePipelineResponse);
+
+  ////////////// Run RPCs //////////////
+  //
+  // A run is a specific execution of a pipeline at a specific point in time.
+  // A run is made up of multiple tasks that all run according to their
+  // dependency on each other. Runs can be started either manually by the API or
+  // automatically by associating the pipeline with a trigger.
+
+  // GetRun returns the details of a single run.
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+
+  // BatchGetRuns returns multiple runs by ID.
+  rpc BatchGetRuns(BatchGetRunsRequest) returns (BatchGetRunsResponse);
+
+  // ListRuns returns a list of all runs by Pipeline ID. Pagination can be
+  // controlled via the offset and limit parameters of the request.
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+
+  // StartRun starts a new run for the given pipeline. Pipelines that are
+  // started via API are marked as such. This RPC has the ability to choose to
+  // only run a subset of a pipeline via the "only" flag. Which is not possible
+  // via a trigger.
+  rpc StartRun(StartRunRequest) returns (StartRunResponse);
+
+  // RetryRun simply takes the vars and settings from a previous run and re-uses
+  // those to launch a new run. Useful for if you want the exact settings from a
+  // previous run.
+  rpc RetryRun(RetryRunRequest) returns (RetryRunResponse);
+
+  // CancelRun stops the execution of a run in progress. Any task runs that
+  // might have been running at the time Are ask to stop gracefully(SIGINT)
+  // unless the force parameter is used, in which case the task runs are stopped
+  // instantly(SIGKILL) and the run is cancelled.
+  rpc CancelRun(CancelRunRequest) returns (CancelRunResponse);
+
+  // CancelAllRuns stops the execution of any in-progress runs for a specific
+  // pipeline by ID.
+  rpc CancelAllRuns(CancelAllRunsRequest) returns (CancelAllRunsResponse);
 }

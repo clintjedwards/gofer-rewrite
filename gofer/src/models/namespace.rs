@@ -2,7 +2,7 @@ use crate::models::epoch;
 
 /// Represents a division of pipelines. Normally it is used to divide teams or logically different
 /// sections of workloads. This is the highest level unit.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Namespace {
     /// Unique user defined identifier.
     pub id: String,

@@ -484,6 +484,55 @@ impl Gofer for Api {
         info!("Deleted pipeline"; "id" => &args.id);
         Ok(Response::new(DeletePipelineResponse {}))
     }
+
+    async fn get_run(
+        &self,
+        request: Request<GetRunRequest>,
+    ) -> Result<Response<GetRunResponse>, Status> {
+        todo!()
+    }
+
+    async fn batch_get_runs(
+        &self,
+        request: Request<BatchGetRunsRequest>,
+    ) -> Result<Response<BatchGetRunsResponse>, Status> {
+        todo!()
+    }
+
+    async fn list_runs(
+        &self,
+        request: Request<ListRunsRequest>,
+    ) -> Result<Response<ListRunsResponse>, Status> {
+        todo!()
+    }
+
+    async fn start_run(
+        &self,
+        request: Request<StartRunRequest>,
+    ) -> Result<Response<StartRunResponse>, Status> {
+        todo!()
+    }
+
+    async fn retry_run(
+        &self,
+        request: Request<RetryRunRequest>,
+    ) -> Result<Response<RetryRunResponse>, Status> {
+        todo!()
+    }
+
+    async fn cancel_run(
+        &self,
+        request: Request<CancelRunRequest>,
+    ) -> Result<Response<CancelRunResponse>, Status> {
+        todo!()
+    }
+
+    async fn cancel_all_runs(
+        &self,
+        request: Request<CancelAllRunsRequest>,
+    ) -> Result<Response<CancelAllRunsResponse>, Status> {
+        todo!()
+    }
 }
 
 impl Api {

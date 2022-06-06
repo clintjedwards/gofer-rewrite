@@ -1,6 +1,9 @@
 mod namespaces;
 mod pipelines;
 
+#[cfg(test)]
+mod tests;
+
 use sqlx::{migrate, Pool, Sqlite, SqlitePool};
 use std::{error::Error, fmt, fs::File, io, path::Path};
 use thiserror::Error;
@@ -8,7 +11,7 @@ use thiserror::Error;
 /// The maximum amount of rows that can be returned by any single query.
 const MAX_ROW_LIMIT: u64 = 200;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum StorageError {
     #[error("requested entity not found")]
     NotFound,
