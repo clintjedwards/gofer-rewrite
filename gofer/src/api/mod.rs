@@ -293,6 +293,44 @@ impl Gofer for Api {
         }))
     }
 
+    async fn run_pipeline(
+        &self,
+        request: Request<RunPipelineRequest>,
+    ) -> Result<Response<RunPipelineResponse>, Status> {
+        let args = &request.into_inner();
+
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
+
+        if args.id.is_empty() {
+            return Err(Status::failed_precondition(
+                "must include target pipeline id",
+            ));
+        }
+
+        let result = self
+            .storage
+            .get_pipeline(&args.namespace_id, &args.id)
+            .await;
+
+        if let Err(e) = result {
+            match e {
+                storage::StorageError::NotFound => {
+                    return Err(Status::not_found(format!(
+                        "pipeline with id '{}' does not exist",
+                        &args.id
+                    )))
+                }
+                _ => return Err(Status::internal(e.to_string())),
+            }
+        }
+
+        unimplemented!();
+
+        //Ok(Response::new(RunPipelineResponse {}))
+    }
+
     async fn enable_pipeline(
         &self,
         request: Request<EnablePipelineRequest>,

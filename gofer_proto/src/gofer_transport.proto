@@ -73,6 +73,12 @@ message ListPipelinesRequest {
 }
 message ListPipelinesResponse { repeated Pipeline pipelines = 1; }
 
+message RunPipelineRequest {
+  string namespace_id = 1; // Unique namespace identifier
+  string id = 2;           // Unique identifier
+}
+message RunPipelineResponse { Run run = 1; }
+
 message DisablePipelineRequest {
   string namespace_id = 1; // Unique namespace identifier
   string id = 2;           // Unique namespace identifier

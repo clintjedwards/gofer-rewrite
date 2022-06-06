@@ -374,10 +374,10 @@ impl Db {
 
         let mut pipeline = sqlx::query(
             r#"
-            SELECT namespace, id, name, description, parallelism, created, modified, state
+            SELECT namespace, id, name, description, parallelism, created, modified, state, store_keys
             FROM pipelines
-            ORDER BY id
             WHERE namespace = ? AND id = ?
+            ORDER BY id
             LIMIT 1;
                 "#,
         )
@@ -417,12 +417,12 @@ impl Db {
             started: u64,
         }
 
-        let last_run = sqlx::query(
+        let last_run = match sqlx::query(
             r#"
         SELECT id, started
         FROM runs
-        ORDER BY started DESC
         WHERE namespace = ? AND pipeline = ?
+        ORDER BY started DESC
         LIMIT 1;
             "#,
         )
@@ -433,9 +433,14 @@ impl Db {
             started: row.get::<i64, _>("started") as u64,
         })
         .fetch_one(&mut tx)
-        .map_err(|e| StorageError::Unknown(e.to_string()))
         .await
-        .unwrap();
+        {
+            Ok(last_run) => last_run,
+            Err(storage_err) => match storage_err {
+                sqlx::Error::RowNotFound => Run { id: 0, started: 0 },
+                _ => panic!("{}", storage_err.to_string()),
+            },
+        };
 
         pipeline.last_run_id = last_run.id;
         pipeline.last_run_time = last_run.started;
@@ -576,8 +581,8 @@ impl Db {
             r#"
                 SELECT namespace, id, name, description, parallelism, created, modified, state
                 FROM pipelines
-                ORDER BY id
                 WHERE namespace = ? AND id = ?
+                ORDER BY id
                 LIMIT 1;
             "#,
         )
@@ -609,19 +614,22 @@ impl Db {
             },
         })
         .fetch_one(&mut tx)
-        .map_err(|e| StorageError::Unknown(e.to_string()))
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => StorageError::NotFound,
+            _ => StorageError::Unknown(e.to_string()),
+        })
         .await?;
 
         struct Run {
             state: RunState,
         }
 
-        let last_run = sqlx::query(
+        let last_run: Option<Run> = match sqlx::query(
             r#"
         SELECT state
         FROM runs
-        ORDER BY started DESC
         WHERE namespace = ? AND pipeline = ?
+        ORDER BY started DESC
         LIMIT 1;
             "#,
         )
@@ -631,12 +639,19 @@ impl Db {
             state: serde_json::from_str(&row.get::<String, _>("state")).unwrap(),
         })
         .fetch_one(&mut tx)
-        .map_err(|e| StorageError::Unknown(e.to_string()))
         .await
-        .unwrap();
+        {
+            Ok(last_run) => Some(last_run),
+            Err(storage_err) => match storage_err {
+                sqlx::Error::RowNotFound => None,
+                _ => panic!("{}", storage_err.to_string()),
+            },
+        };
 
-        if last_run.state != RunState::Complete {
-            return Err(StorageError::FailedPrecondition);
+        if let Some(last_run) = last_run {
+            if last_run.state != RunState::Complete {
+                return Err(StorageError::FailedPrecondition);
+            }
         }
 
         sqlx::query(

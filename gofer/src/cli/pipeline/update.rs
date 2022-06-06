@@ -6,14 +6,9 @@ use std::io::{BufRead, BufReader, Read};
 use std::{path::PathBuf, process};
 
 impl CliHarness {
-    /// The ability to create and manage pipelines is a huge selling point for Gofer.
-    /// In the pursuit of making this as easy as possible we allow the user to use rust
-    /// as a way to generate and manage their pipeline configurations. For that to work
-    /// though we have to be able to compile and run programs which implement the sdk and
-    /// then collect the output.
-    pub async fn pipeline_create(&self, path: &str) {
+    pub async fn pipeline_update(&self, path: &str) {
         let spinner: ProgressBar = Spinner::new();
-        spinner.set_message("Creating pipeline");
+        spinner.set_message("Updating pipeline");
 
         // Figure out absolute path for any given path string.
         let path = PathBuf::from(path);
@@ -94,16 +89,16 @@ impl CliHarness {
             }
         };
 
-        spinner.set_message("Creating pipeline config");
+        spinner.set_message("Updating pipeline config");
 
         let mut client = match self.connect().await {
             Ok(client) => client,
             Err(e) => {
-                spinner.finish_and_error(&format!("Could not create pipeline; {}", e));
+                spinner.finish_and_error(&format!("Could not update pipeline; {}", e));
             }
         };
 
-        let request = tonic::Request::new(gofer_proto::CreatePipelineRequest {
+        let request = tonic::Request::new(gofer_proto::UpdatePipelineRequest {
             namespace_id: self
                 .config
                 .namespace
@@ -111,30 +106,30 @@ impl CliHarness {
                 .unwrap_or_else(|| DEFAULT_NAMESPACE.to_string()),
             pipeline_config: Some(config.into()),
         });
-        let response = match client.create_pipeline(request).await {
+        let response = match client.update_pipeline(request).await {
             Ok(response) => response.into_inner(),
             Err(e) => {
-                spinner.finish_and_error(&format!("Could not create pipeline; {}", e));
+                spinner.finish_and_error(&format!("Could not update pipeline; {}", e));
             }
         };
 
-        let created_pipeline = response.pipeline.unwrap();
+        let updated_pipeline = response.pipeline.unwrap();
 
         spinner.finish_and_clear();
 
         println!(
-            "{} Created pipeline: [{}] {}",
+            "{} Updated pipeline: [{}] {}",
             "✓".green(),
-            created_pipeline.id.green(),
-            created_pipeline.name
+            updated_pipeline.id.green(),
+            updated_pipeline.name
         );
         println!(
             "  View details of your new pipeline: {}",
-            format!("gofer pipeline get {}", created_pipeline.id).cyan()
+            format!("gofer pipeline get {}", updated_pipeline.id).cyan()
         );
         println!(
             "  Start a new run: {}",
-            format!("gofer pipeline run {}", created_pipeline.id).cyan()
+            format!("gofer pipeline run {}", updated_pipeline.id).cyan()
         );
     }
 }

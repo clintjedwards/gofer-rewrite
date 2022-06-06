@@ -156,29 +156,20 @@ pub async fn init() {
         Commands::Namespace(namespace) => {
             let namespace_cmds = namespace.command;
             match namespace_cmds {
-                namespace::NamespaceCommands::List => {
-                    cli.namespace_list().await;
-                }
+                namespace::NamespaceCommands::List => cli.namespace_list().await,
                 namespace::NamespaceCommands::Create {
                     id,
                     name,
                     description,
-                } => {
-                    cli.namespace_create(&id, name, description).await;
-                }
-                namespace::NamespaceCommands::Get { id } => {
-                    cli.namespace_get(&id).await;
-                }
+                } => cli.namespace_create(&id, name, description).await,
+
+                namespace::NamespaceCommands::Get { id } => cli.namespace_get(&id).await,
                 namespace::NamespaceCommands::Update {
                     id,
                     name,
                     description,
-                } => {
-                    cli.namespace_update(&id, name, description).await;
-                }
-                namespace::NamespaceCommands::Delete { id } => {
-                    cli.namespace_delete(&id).await;
-                }
+                } => cli.namespace_update(&id, name, description).await,
+                namespace::NamespaceCommands::Delete { id } => cli.namespace_delete(&id).await,
             }
         }
         Commands::Pipeline(pipeline) => {
@@ -189,11 +180,12 @@ pub async fn init() {
             }
 
             match pipeline_cmds {
-                pipeline::PipelineCommands::List => {
-                    cli.pipeline_list().await;
-                }
+                pipeline::PipelineCommands::List => cli.pipeline_list().await,
                 pipeline::PipelineCommands::Create { path } => cli.pipeline_create(&path).await,
-                _ => todo!(),
+                pipeline::PipelineCommands::Get { id } => cli.pipeline_get(&id).await,
+                pipeline::PipelineCommands::Run { id } => cli.pipeline_run(&id).await,
+                pipeline::PipelineCommands::Update { path } => cli.pipeline_update(&path).await,
+                pipeline::PipelineCommands::Delete { id } => cli.pipeline_delete(&id).await,
             }
         }
     }

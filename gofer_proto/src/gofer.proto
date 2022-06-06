@@ -45,6 +45,9 @@ service Gofer {
   // creation.
   rpc ListPipelines(ListPipelinesRequest) returns (ListPipelinesResponse);
 
+  // RunPipeline executes a single run of this pipeline.
+  rpc RunPipeline(RunPipelineRequest) returns (RunPipelineResponse);
+
   // EnablePipeline allows a pipeline to execute runs by allowing it to receive
   // trigger events. See DisablePipeline to prevent a pipeline from executing
   // any more runs.

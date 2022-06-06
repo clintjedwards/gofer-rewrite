@@ -1,6 +1,9 @@
 mod create;
+mod delete;
 mod get;
 mod list;
+mod run;
+mod update;
 
 use clap::{Args, Subcommand};
 
