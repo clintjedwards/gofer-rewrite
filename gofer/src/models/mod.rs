@@ -25,7 +25,7 @@ fn epoch() -> u64 {
 /// might show up.
 /// It also may control ordering of overwriting when the variables are injected
 /// into a container.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum VariableOwner {
     Unknown,
     User,
@@ -69,7 +69,7 @@ impl FromStr for VariableOwner {
 /// The variable is inserted as an environment variable to an eventual task run.
 /// It can be owned by different parts of the system and which controls where
 /// the potentially sensitive variables might show up.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Variable {
     pub key: String,
     pub value: String,

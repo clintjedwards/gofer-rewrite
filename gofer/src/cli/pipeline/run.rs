@@ -8,7 +8,7 @@ impl CliHarness {
         let vars: HashMap<String, String> = variables
             .into_iter()
             .map(|var| {
-                let split_var: Vec<&str> = var.split("=").collect();
+                let split_var: Vec<&str> = var.split('=').collect();
                 if split_var.len() != 2 {
                     eprintln!(
                         "Variable parsing error for var '{}'; must be in form my_key=my_var",

@@ -1,10 +1,11 @@
 use super::Variable;
+use crate::models::epoch;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use strum::{Display, EnumString};
 
 /// Represents the current state of the run as it progresses through the steps
 /// involved to completion.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Display, EnumString, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RunState {
     /// Could not determine current state of the run. Should never happen.
     Unknown,
@@ -28,22 +29,8 @@ impl From<gofer_proto::run::RunState> for RunState {
     }
 }
 
-impl FromStr for RunState {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input.to_lowercase().as_str() {
-            "unknown" => Ok(RunState::Unknown),
-            "pending" => Ok(RunState::Pending),
-            "running" => Ok(RunState::Running),
-            "complete" => Ok(RunState::Complete),
-            _ => Err(()),
-        }
-    }
-}
-
 /// Represents the current status of a completed run.
-#[derive(Debug)]
+#[derive(Debug, Display, EnumString, PartialEq, Eq)]
 pub enum RunStatus {
     /// Could not determine current state of the status. Should only be in this state if
     /// the run has not yet completed.
@@ -67,22 +54,8 @@ impl From<gofer_proto::run::RunStatus> for RunStatus {
     }
 }
 
-impl FromStr for RunStatus {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input.to_lowercase().as_str() {
-            "unknown" => Ok(RunStatus::Unknown),
-            "successful" => Ok(RunStatus::Successful),
-            "failed" => Ok(RunStatus::Failed),
-            "cancelled" => Ok(RunStatus::Cancelled),
-            _ => Err(()),
-        }
-    }
-}
-
 /// Explains in more detail why a particular run might have failed.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RunFailureReason {
     /// Could not determine failure reason for current run. Should never happen.
     Unknown,
@@ -121,24 +94,8 @@ impl From<gofer_proto::run_failure_info::RunFailureReason> for RunFailureReason 
     }
 }
 
-impl FromStr for RunFailureReason {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input.to_lowercase().as_str() {
-            "unknown" => Ok(RunFailureReason::Unknown),
-            "abnormal_exit" => Ok(RunFailureReason::AbnormalExit),
-            "scheduler_error" => Ok(RunFailureReason::SchedulerError),
-            "failed_precondition" => Ok(RunFailureReason::FailedPrecondition),
-            "user_cancelled" => Ok(RunFailureReason::UserCancelled),
-            "admin_cancelled" => Ok(RunFailureReason::AdminCancelled),
-            _ => Err(()),
-        }
-    }
-}
-
 /// Information about a run's failure. Does not get populated before a run is finished.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RunFailureInfo {
     /// Why the run might have failed.
     pub reason: RunFailureReason,
@@ -147,7 +104,7 @@ pub struct RunFailureInfo {
 }
 
 /// Information about which trigger was responsible for the run's execution.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RunTriggerInfo {
     /// The trigger kind responsible for starting the run.
     pub kind: String,
@@ -157,7 +114,7 @@ pub struct RunTriggerInfo {
 }
 
 /// Information about the run's store keys as they pertain to Gofer's object store.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RunStoreInfo {
     /// After a certain number of runs Gofer's run objects are removed.
     pub is_expired: bool,
@@ -167,7 +124,7 @@ pub struct RunStoreInfo {
 
 /// A run is one or more tasks being executed on behalf of some trigger.
 /// Run is a third level unit containing tasks and being contained in a pipeline.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Run {
     /// Identifier for the namespace that this run belongs to.
     pub namespace: String,
@@ -193,4 +150,28 @@ pub struct Run {
     pub variables: Vec<Variable>,
     /// Information about the object keys that were stored in Gofer's run object store for this run.
     pub store_info: Option<RunStoreInfo>,
+}
+
+impl Run {
+    pub fn new(
+        namespace: &str,
+        pipeline: &str,
+        trigger: RunTriggerInfo,
+        variables: Vec<Variable>,
+    ) -> Self {
+        Self {
+            namespace: namespace.to_string(),
+            pipeline: pipeline.to_string(),
+            id: 0,
+            started: epoch(),
+            ended: 0,
+            state: RunState::Pending,
+            status: RunStatus::Unknown,
+            failure_info: None,
+            task_runs: vec![],
+            trigger,
+            variables,
+            store_info: None,
+        }
+    }
 }

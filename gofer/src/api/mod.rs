@@ -233,7 +233,7 @@ impl Gofer for Api {
         };
 
         let new_pipeline =
-            models::Pipeline::new(args.namespace_id.clone(), pipeline_config.to_owned().into());
+            models::Pipeline::new(&args.namespace_id, pipeline_config.to_owned().into());
 
         let result = self.storage.create_pipeline(&new_pipeline).await;
         match result {
@@ -427,7 +427,7 @@ impl Gofer for Api {
         };
 
         let new_pipeline =
-            models::Pipeline::new(args.namespace_id.clone(), pipeline_config.to_owned().into());
+            models::Pipeline::new(&args.namespace_id, pipeline_config.to_owned().into());
 
         let result = self.storage.update_pipeline(&new_pipeline).await;
         match result {

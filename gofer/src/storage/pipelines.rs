@@ -36,10 +36,10 @@ impl Db {
         // First we need to get the general pipeline information.
         let mut pipelines = sqlx::query(
             r#"
-        SELECT namespace, id, name, description, parallelism, created, modified, state
+        SELECT namespace, id, name, description, parallelism, created, modified, state, store_keys
         FROM pipelines
-        ORDER BY created
         WHERE namespace = ?
+        ORDER BY created
         LIMIT ?
         OFFSET ?;
             "#,
@@ -83,12 +83,12 @@ impl Db {
                 started: u64,
             }
 
-            let last_run = sqlx::query(
+            let last_run = match sqlx::query(
                 r#"
             SELECT id, started
             FROM runs
-            ORDER BY started DESC
             WHERE namespace = ? AND pipeline = ?
+            ORDER BY started DESC
             LIMIT 1;
                 "#,
             )
@@ -99,9 +99,14 @@ impl Db {
                 started: row.get::<i64, _>("started") as u64,
             })
             .fetch_one(&mut tx)
-            .map_err(|e| StorageError::Unknown(e.to_string()))
             .await
-            .unwrap();
+            {
+                Ok(last_run) => last_run,
+                Err(storage_err) => match storage_err {
+                    sqlx::Error::RowNotFound => Run { id: 0, started: 0 },
+                    _ => panic!("{}", storage_err.to_string()),
+                },
+            };
 
             pipeline.last_run_id = last_run.id;
             pipeline.last_run_time = last_run.started;
@@ -383,7 +388,8 @@ impl Db {
         )
         .bind(namespace)
         .bind(id)
-        .map(|row: SqliteRow| Pipeline {
+        .map(|row: SqliteRow|
+            Pipeline {
             namespace: row.get("namespace"),
             id: row.get("id"),
             name: row.get("name"),
@@ -394,11 +400,12 @@ impl Db {
             created: row.get::<i64, _>("created") as u64,
             modified: row.get::<i64, _>("modified") as u64,
             state: PipelineState::from_str(row.get("state"))
-                .map_err(|_| StorageError::Parse {
+                .map_err(|_| {
+                    StorageError::Parse {
                     value: row.get("state"),
                     column: "state".to_string(),
                     err: "could not parse value into pipeline state enum".to_string(),
-                })
+                }})
                 .unwrap(),
             tasks: HashMap::new(),
             triggers: HashMap::new(),
@@ -409,7 +416,10 @@ impl Db {
             },
         })
         .fetch_one(&mut tx)
-        .map_err(|e| StorageError::Unknown(e.to_string()))
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => StorageError::NotFound,
+            _ => StorageError::Unknown(e.to_string()),
+        })
         .await?;
 
         struct Run {
@@ -706,9 +716,11 @@ impl Db {
         .bind(&pipeline.name)
         .bind(&pipeline.description)
         .bind(pipeline.parallelism as i64)
-        .bind(serde_json::to_string(&pipeline.state).unwrap())
+        .bind(&pipeline.state.to_string())
         .bind(pipeline.modified as i64)
         .bind(serde_json::to_string(&pipeline.store_keys).unwrap())
+        .bind(&pipeline.namespace)
+        .bind(&pipeline.id)
         .execute(&mut tx)
         .map_ok(|_| ())
         .map_err(|e| match e {

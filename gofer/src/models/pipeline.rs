@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use strum::{Display, EnumString};
 
 /// The current state of the pipeline. Pipelines can be disabled to stop execution.
-#[derive(Debug, Display, EnumString, Serialize, Deserialize)]
+#[derive(Debug, Display, EnumString, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PipelineState {
     /// The state of the pipeline is unknown. This should never happen.
     Unknown,
@@ -37,7 +37,7 @@ impl From<PipelineState> for gofer_proto::pipeline::PipelineState {
 
 /// A collection of logically grouped tasks. A task is a unit of work wrapped in a docker container.
 /// Pipeline is a secondary level unit being contained within namespaces and containing runs.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Pipeline {
     /// Unique identifier for the namespace that this pipeline belongs to.
     pub namespace: String,
@@ -105,9 +105,9 @@ impl From<Pipeline> for gofer_proto::Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(namespace: String, config: gofer_sdk::config::Pipeline) -> Self {
+    pub fn new(namespace: &str, config: gofer_sdk::config::Pipeline) -> Self {
         Pipeline {
-            namespace,
+            namespace: namespace.to_string(),
             id: config.id,
             name: config.name,
             description: config.description.unwrap_or_default(),
@@ -141,7 +141,7 @@ impl Pipeline {
 /// values back to that trigger for certain functionality. Since triggers keep no
 /// permanent state, these settings are kept here so that when triggers are restarted
 /// they can be restored with proper settings.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PipelineTriggerSettings {
     /// A global unique identifier for the trigger type.
     pub kind: String,
@@ -212,7 +212,7 @@ impl From<gofer_sdk::config::PipelineTriggerConfig> for PipelineTriggerSettings 
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PipelineNotifierSettings {
     /// A global unique identifier for the notifier type.
     pub kind: String,
