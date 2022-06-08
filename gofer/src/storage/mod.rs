@@ -1,6 +1,7 @@
 mod namespaces;
 mod pipelines;
 mod runs;
+mod task_runs;
 
 #[cfg(test)]
 mod tests;

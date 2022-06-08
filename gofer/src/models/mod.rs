@@ -2,11 +2,13 @@ mod namespace;
 mod pipeline;
 mod run;
 mod task;
+mod task_run;
 
 pub use self::namespace::*;
 pub use self::pipeline::*;
 pub use self::run::*;
 pub use self::task::*;
+pub use self::task_run::*;
 
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -25,7 +27,7 @@ fn epoch() -> u64 {
 /// might show up.
 /// It also may control ordering of overwriting when the variables are injected
 /// into a container.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum VariableOwner {
     Unknown,
     User,
@@ -69,7 +71,7 @@ impl FromStr for VariableOwner {
 /// The variable is inserted as an environment variable to an eventual task run.
 /// It can be owned by different parts of the system and which controls where
 /// the potentially sensitive variables might show up.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct Variable {
     pub key: String,
     pub value: String,

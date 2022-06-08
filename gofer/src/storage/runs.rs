@@ -1,13 +1,13 @@
-use std::{collections::HashMap, ops::Deref};
+use std::ops::Deref;
 
-use crate::models::{Run, RunFailureInfo, RunState, RunStatus, Task};
+use crate::models::{Run, RunState, RunStatus};
 use crate::storage::{Db, SqliteErrors, StorageError, MAX_ROW_LIMIT};
 use futures::TryFutureExt;
 use sqlx::{sqlite::SqliteRow, Acquire, Row};
 use std::str::FromStr;
 
 impl Db {
-    /// Return all run for a given namespace; limited to 200 rows per response.
+    /// Return all runs for a given namespace/pipeline; limited to 200 rows per response.
     pub async fn list_runs(
         &self,
         offset: u64,
@@ -106,12 +106,11 @@ impl Db {
 
         struct LastRun {
             id: u64,
-            started: u64,
         }
 
         let last_run = match sqlx::query(
             r#"
-            SELECT id, started
+            SELECT id
             FROM runs
             WHERE namespace = ? AND pipeline = ?
             ORDER BY started DESC
@@ -122,14 +121,13 @@ impl Db {
         .bind(&run.pipeline)
         .map(|row: SqliteRow| LastRun {
             id: row.get::<i64, _>("id") as u64,
-            started: row.get::<i64, _>("started") as u64,
         })
         .fetch_one(&mut tx)
         .await
         {
             Ok(last_run) => last_run,
             Err(storage_err) => match storage_err {
-                sqlx::Error::RowNotFound => LastRun { id: 0, started: 0 },
+                sqlx::Error::RowNotFound => LastRun { id: 0 },
                 _ => panic!("{}", storage_err.to_string()),
             },
         };

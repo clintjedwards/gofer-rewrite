@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::*;
 use crate::models::{self, RunState, RunTriggerInfo};
 use rand::prelude::*;
@@ -29,7 +31,7 @@ impl Drop for TestHarness {
 
 #[tokio::test]
 /// Basic CRUD can be accomplished for namespaces.
-async fn namespaces() {
+async fn crud_namespaces() {
     let harness = TestHarness::new().await;
 
     let new_namespace = models::Namespace::new(
@@ -76,7 +78,7 @@ async fn namespaces() {
 
 #[tokio::test]
 /// Basic CRUD can be accomplished for pipelines.
-async fn pipelines() {
+async fn crud_pipelines() {
     let harness = TestHarness::new().await;
 
     let test_namespace =
@@ -88,14 +90,39 @@ async fn pipelines() {
 
     harness.db.create_pipeline(&test_pipeline).await.unwrap();
 
+    let test_pipeline_full_config =
+        gofer_sdk::config::Pipeline::new("test_pipeline_full", "Test Pipeline")
+            .description("a fully loaded pipeline config for testing")
+            .parallelism(10)
+            .tasks(vec![gofer_sdk::config::Task::new(
+                "test_task",
+                "test_image",
+            )])
+            .triggers(vec![gofer_sdk::config::PipelineTriggerConfig::new(
+                "test_trigger",
+                "test_trigger",
+            )])
+            .notifiers(vec![gofer_sdk::config::PipelineNotifierConfig::new(
+                "test_notifier",
+                "test_notifier",
+            )]);
+    let test_pipeline_full = models::Pipeline::new(&test_namespace.id, test_pipeline_full_config);
+
+    harness
+        .db
+        .create_pipeline(&test_pipeline_full)
+        .await
+        .unwrap();
+
     let pipelines = harness
         .db
         .list_pipelines(0, 0, &test_namespace.id)
         .await
         .unwrap();
 
-    assert_eq!(pipelines.len(), 1);
+    assert_eq!(pipelines.len(), 2);
     assert_eq!(pipelines[0], test_pipeline);
+    assert_eq!(pipelines[1], test_pipeline_full);
 
     let pipeline = harness
         .db
@@ -133,7 +160,7 @@ async fn pipelines() {
 
 #[tokio::test]
 /// Basic CRUD can be accomplished for runs.
-async fn runs() {
+async fn crud_runs() {
     let harness = TestHarness::new().await;
 
     let test_namespace =
@@ -199,4 +226,47 @@ async fn runs() {
         .unwrap_err();
 
     assert_eq!(run, StorageError::NotFound);
+}
+
+#[tokio::test]
+/// Basic CRUD can be accomplished for task runs.
+async fn crud_task_runs() {
+    let harness = TestHarness::new().await;
+
+    let test_namespace =
+        models::Namespace::new("test_namespace", "Test Namespace", "Test Description");
+    harness.db.create_namespace(&test_namespace).await.unwrap();
+
+    let test_pipeline_config = gofer_sdk::config::Pipeline::new("test_pipeline", "Test Pipeline");
+    let mut test_pipeline = models::Pipeline::new(&test_namespace.id, test_pipeline_config);
+
+    let test_task = models::Task::new("test_task", "test_image");
+
+    test_pipeline.tasks = HashMap::new();
+    test_pipeline
+        .tasks
+        .insert("test_task".to_string(), test_task.clone());
+
+    harness.db.create_pipeline(&test_pipeline).await.unwrap();
+
+    let test_run = models::Run::new(
+        &test_namespace.id,
+        &test_pipeline.id,
+        RunTriggerInfo {
+            kind: "test_trigger".to_string(),
+            label: "my_test_trigger".to_string(),
+        },
+        vec![],
+    );
+
+    harness.db.create_run(&test_run).await.unwrap();
+
+    let test_task_run = models::TaskRun::new(
+        &test_namespace.id,
+        &test_pipeline.id,
+        test_run.id,
+        test_task,
+    );
+
+    harness.db.create_task_run(&test_task_run).await.unwrap();
 }

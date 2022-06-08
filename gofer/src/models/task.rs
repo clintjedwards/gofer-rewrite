@@ -3,7 +3,7 @@ use gofer_sdk::config;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum RequiredParentStatus {
     Unknown,
     Any,
@@ -58,7 +58,7 @@ impl FromStr for RequiredParentStatus {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct RegistryAuth {
     pub user: String,
     pub pass: String,
@@ -91,7 +91,7 @@ impl From<config::RegistryAuth> for RegistryAuth {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct Exec {
     pub shell: String,
     pub script: String,
@@ -124,7 +124,7 @@ impl From<config::Exec> for Exec {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct Task {
     pub id: String,
     pub description: Option<String>,

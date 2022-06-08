@@ -68,8 +68,8 @@ impl Db {
             triggers: HashMap::new(),
             notifiers: HashMap::new(),
             store_keys: {
-                let keys_json = row.get::<String, _>("store_keys");
-                serde_json::from_str(&keys_json).unwrap()
+                let keys = row.get::<String, _>("store_keys");
+                serde_json::from_str(&keys).unwrap()
             },
         })
         .fetch_all(&mut tx)
@@ -92,8 +92,8 @@ impl Db {
             LIMIT 1;
                 "#,
             )
-            .bind(pipeline.namespace.clone())
-            .bind(pipeline.id.clone())
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
             .map(|row: SqliteRow| Run {
                 id: row.get::<i64, _>("id") as u64,
                 started: row.get::<i64, _>("started") as u64,
@@ -119,31 +119,35 @@ impl Db {
             WHERE namespace = ? AND pipeline = ?;
                 "#,
             )
-            .bind(pipeline.namespace.clone())
-            .bind(pipeline.id.clone())
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
             .map(|row: SqliteRow| Task {
                 id: row.get("id"),
                 description: row.get("description"),
                 image: row.get("image"),
                 registry_auth: {
-                    let registry_auth_json = row.try_get::<String, _>("registry_auth").ok();
-                    registry_auth_json
-                        .as_ref()
-                        .map(|value| serde_json::from_str(value).unwrap())
+                    let registry_auth = row.get::<String, _>("registry_auth");
+                    if registry_auth.is_empty() {
+                        None
+                    } else {
+                        serde_json::from_str(&registry_auth).unwrap()
+                    }
                 },
                 depends_on: {
-                    let depends_on_json = row.get::<String, _>("depends_on");
-                    serde_json::from_str(&depends_on_json).unwrap()
+                    let depends_on = row.get::<String, _>("depends_on");
+                    serde_json::from_str(&depends_on).unwrap()
                 },
                 variables: {
-                    let variables_json = row.get::<String, _>("variables");
-                    serde_json::from_str(&variables_json).unwrap()
+                    let variables = row.get::<String, _>("variables");
+                    serde_json::from_str(&variables).unwrap()
                 },
                 exec: {
-                    let exec_json = row.try_get::<String, _>("exec").ok();
-                    exec_json
-                        .as_ref()
-                        .map(|value| serde_json::from_str(value).unwrap())
+                    let exec = row.get::<String, _>("exec");
+                    if exec.is_empty() {
+                        None
+                    } else {
+                        serde_json::from_str(&exec).unwrap()
+                    }
                 },
             })
             .fetch_all(&mut tx)
@@ -165,8 +169,8 @@ impl Db {
             WHERE namespace = ? AND pipeline = ?;
                 "#,
             )
-            .bind(pipeline.namespace.clone())
-            .bind(pipeline.id.clone())
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
             .map(|row: SqliteRow| PipelineTriggerSettings {
                 kind: row.get("kind"),
                 label: row.get("label"),
@@ -195,8 +199,8 @@ impl Db {
             WHERE namespace = ? AND pipeline = ?;
                 "#,
             )
-            .bind(pipeline.namespace.clone())
-            .bind(pipeline.id.clone())
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
             .map(|row: SqliteRow| PipelineNotifierSettings {
                 kind: row.get("kind"),
                 label: row.get("label"),
@@ -278,15 +282,25 @@ impl Db {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
                 "#,
             )
-            .bind(pipeline.namespace.clone())
-            .bind(pipeline.id.clone())
-            .bind(task.id.clone())
-            .bind(task.description.clone())
-            .bind(task.image.clone())
-            .bind(serde_json::to_string(&task.registry_auth).unwrap())
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
+            .bind(&task.id)
+            .bind(&task.description)
+            .bind(&task.image)
+            .bind({
+                if task.registry_auth.is_none() {
+                    None
+                } else {
+                    Some(serde_json::to_string(&task.registry_auth).unwrap())
+                }
+            })
             .bind(serde_json::to_string(&task.depends_on).unwrap())
             .bind(serde_json::to_string(&task.variables).unwrap())
-            .bind(serde_json::to_string(&task.exec).unwrap())
+            .bind(if task.exec.is_none() {
+                None
+            } else {
+                Some(serde_json::to_string(&task.exec).unwrap())
+            })
             .execute(&mut tx)
             .map_err(|e| match e {
                 sqlx::Error::Database(database_err) => {
@@ -309,11 +323,12 @@ impl Db {
             VALUES (?, ?, ?, ?, ?, ?);
                 "#,
             )
-            .bind(pipeline.namespace.clone())
-            .bind(pipeline.id.clone())
-            .bind(settings.kind.clone())
-            .bind(settings.label.clone())
-            .bind(settings.error.clone())
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
+            .bind(&settings.kind)
+            .bind(&settings.label)
+            .bind(serde_json::to_string(&settings.settings).unwrap())
+            .bind(&settings.error)
             .execute(&mut tx)
             .map_err(|e| match e {
                 sqlx::Error::Database(database_err) => {
@@ -336,11 +351,12 @@ impl Db {
             VALUES (?, ?, ?, ?, ?, ?);
                 "#,
             )
-            .bind(pipeline.namespace.clone())
-            .bind(pipeline.id.clone())
-            .bind(settings.kind.clone())
-            .bind(settings.label.clone())
-            .bind(settings.error.clone())
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
+            .bind(&settings.kind)
+            .bind(&settings.label)
+            .bind(serde_json::to_string(&settings.settings).unwrap())
+            .bind(&settings.error)
             .execute(&mut tx)
             .map_err(|e| match e {
                 sqlx::Error::Database(database_err) => {
@@ -411,8 +427,8 @@ impl Db {
             triggers: HashMap::new(),
             notifiers: HashMap::new(),
             store_keys: {
-                let keys_json = row.get::<String, _>("store_keys");
-                serde_json::from_str(&keys_json).unwrap()
+                let keys = row.get::<String, _>("store_keys");
+                serde_json::from_str(&keys).unwrap()
             },
         })
         .fetch_one(&mut tx)
@@ -436,8 +452,8 @@ impl Db {
         LIMIT 1;
             "#,
         )
-        .bind(pipeline.namespace.clone())
-        .bind(pipeline.id.clone())
+        .bind(&pipeline.namespace)
+        .bind(&pipeline.id)
         .map(|row: SqliteRow| Run {
             id: row.get::<i64, _>("id") as u64,
             started: row.get::<i64, _>("started") as u64,
@@ -463,31 +479,35 @@ impl Db {
         WHERE namespace = ? AND pipeline = ?;
             "#,
         )
-        .bind(pipeline.namespace.clone())
-        .bind(pipeline.id.clone())
+        .bind(&pipeline.namespace)
+        .bind(&pipeline.id)
         .map(|row: SqliteRow| Task {
             id: row.get("id"),
             description: row.get("description"),
             image: row.get("image"),
             registry_auth: {
-                let registry_auth_json = row.try_get::<String, _>("registry_auth").ok();
-                registry_auth_json
-                    .as_ref()
-                    .map(|value| serde_json::from_str(value).unwrap())
+                let registry_auth = row.get::<String, _>("registry_auth");
+                if registry_auth.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(&registry_auth).unwrap()
+                }
             },
             depends_on: {
-                let depends_on_json = row.get::<String, _>("depends_on");
-                serde_json::from_str(&depends_on_json).unwrap()
+                let depends_on = row.get::<String, _>("depends_on");
+                serde_json::from_str(&depends_on).unwrap()
             },
             variables: {
-                let variables_json = row.get::<String, _>("variables");
-                serde_json::from_str(&variables_json).unwrap()
+                let variables = row.get::<String, _>("variables");
+                serde_json::from_str(&variables).unwrap()
             },
             exec: {
-                let exec_json = row.try_get::<String, _>("exec").ok();
-                exec_json
-                    .as_ref()
-                    .map(|value| serde_json::from_str(value).unwrap())
+                let exec = row.get::<String, _>("exec");
+                if exec.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(&exec).unwrap()
+                }
             },
         })
         .fetch_all(&mut tx)
@@ -619,8 +639,8 @@ impl Db {
             triggers: HashMap::new(),
             notifiers: HashMap::new(),
             store_keys: {
-                let keys_json = row.get::<String, _>("store_keys");
-                serde_json::from_str(&keys_json).unwrap()
+                let keys = row.get::<String, _>("store_keys");
+                serde_json::from_str(&keys).unwrap()
             },
         })
         .fetch_one(&mut tx)
@@ -646,7 +666,7 @@ impl Db {
         .bind(pipeline.namespace.clone())
         .bind(pipeline.id.clone())
         .map(|row: SqliteRow| Run {
-            state: serde_json::from_str(&row.get::<String, _>("state")).unwrap(),
+            state: RunState::from_str(&row.get::<String, _>("state")).unwrap(),
         })
         .fetch_one(&mut tx)
         .await
@@ -674,7 +694,7 @@ impl Db {
         .bind(&pipeline.name)
         .bind(&pipeline.description)
         .bind(pipeline.parallelism as i64)
-        .bind(serde_json::to_string(&state).unwrap())
+        .bind(state.to_string())
         .bind(pipeline.modified as i64)
         .bind(serde_json::to_string(&pipeline.store_keys).unwrap())
         .execute(&mut tx)
@@ -716,7 +736,7 @@ impl Db {
         .bind(&pipeline.name)
         .bind(&pipeline.description)
         .bind(pipeline.parallelism as i64)
-        .bind(&pipeline.state.to_string())
+        .bind(pipeline.state.to_string())
         .bind(pipeline.modified as i64)
         .bind(serde_json::to_string(&pipeline.store_keys).unwrap())
         .bind(&pipeline.namespace)
@@ -754,15 +774,27 @@ impl Db {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
                 "#,
             )
-            .bind(pipeline.id.clone())
-            .bind(pipeline.namespace.clone())
-            .bind(task.id.clone())
-            .bind(task.description.clone())
-            .bind(task.image.clone())
-            .bind(serde_json::to_string(&task.registry_auth).unwrap())
+            .bind(&pipeline.id)
+            .bind(&pipeline.namespace)
+            .bind(&task.id)
+            .bind(&task.description)
+            .bind(&task.image)
+            .bind({
+                if task.registry_auth.is_none() {
+                    None
+                } else {
+                    Some(serde_json::to_string(&task.registry_auth).unwrap())
+                }
+            })
             .bind(serde_json::to_string(&task.depends_on).unwrap())
             .bind(serde_json::to_string(&task.variables).unwrap())
-            .bind(serde_json::to_string(&task.exec).unwrap())
+            .bind({
+                if task.exec.is_none() {
+                    None
+                } else {
+                    Some(serde_json::to_string(&task.exec).unwrap())
+                }
+            })
             .execute(&mut tx)
             .map_err(|e| match e {
                 sqlx::Error::Database(database_err) => {
@@ -802,11 +834,11 @@ impl Db {
             VALUES (?, ?, ?, ?, ?, ?);
                 "#,
             )
-            .bind(pipeline.namespace.clone())
-            .bind(pipeline.id.clone())
-            .bind(settings.kind.clone())
-            .bind(settings.label.clone())
-            .bind(settings.error.clone())
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
+            .bind(&settings.kind)
+            .bind(&settings.label)
+            .bind(&settings.error)
             .execute(&mut tx)
             .map_err(|e| match e {
                 sqlx::Error::Database(database_err) => {
@@ -846,11 +878,11 @@ impl Db {
             VALUES (?, ?, ?, ?, ?, ?);
                 "#,
             )
-            .bind(pipeline.namespace.clone())
-            .bind(pipeline.id.clone())
-            .bind(settings.kind.clone())
-            .bind(settings.label.clone())
-            .bind(settings.error.clone())
+            .bind(&pipeline.namespace)
+            .bind(&pipeline.id)
+            .bind(&settings.kind)
+            .bind(&settings.label)
+            .bind(&settings.error)
             .execute(&mut tx)
             .map_err(|e| match e {
                 sqlx::Error::Database(database_err) => {

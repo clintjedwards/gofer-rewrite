@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS pipeline_trigger_settings (
     pipeline  TEXT NOT NULL,
     kind      TEXT NOT NULL,
     label     TEXT NOT NULL,
-    settings  TEXT NOT NULL,
+    settings  TEXT,
     error     TEXT,
     FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
     FOREIGN KEY (namespace, pipeline) REFERENCES pipelines(namespace, id) ON DELETE CASCADE,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS pipeline_notifier_settings (
     pipeline  TEXT NOT NULL,
     kind      TEXT NOT NULL,
     label     TEXT NOT NULL,
-    settings  TEXT NOT NULL,
+    settings  TEXT,
     error     TEXT,
     FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
     FOREIGN KEY (namespace, pipeline) REFERENCES pipelines(namespace, id) ON DELETE CASCADE,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     namespace     TEXT NOT NULL,
     pipeline      TEXT NOT NULL,
     id            TEXT NOT NULL,
-    description   TEXT NOT NULL,
+    description   TEXT,
     image         TEXT NOT NULL,
     registry_auth TEXT,
     depends_on    TEXT NOT NULL,
@@ -97,4 +97,25 @@ CREATE TABLE IF NOT EXISTS notifiers (
 
 CREATE TABLE IF NOT EXISTS object_store_run_keys(
     id TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS task_runs (
+    namespace     TEXT    NOT NULL,
+    pipeline      TEXT    NOT NULL,
+    run           INTEGER NOT NULL,
+    id            TEXT    NOT NULL,
+    task          TEXT    NOT NULL,
+    created       INTEGER NOT NULL,
+    started       INTEGER NOT NULL,
+    ended         INTEGER NOT NULL,
+    exit_code     INTEGER,
+    failure       TEXT,
+    logs_expired  INTEGER NOT NULL CHECK (logs_expired IN (0, 1)),
+    logs_removed  INTEGER NOT NULL CHECK (logs_removed IN (0, 1)),
+    state         TEXT    NOT NULL,
+    status        TEXT    NOT NULL,
+    scheduler_id  TEXT,
+    FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
+    FOREIGN KEY (namespace, pipeline) REFERENCES pipelines(namespace, id) ON DELETE CASCADE,
+    PRIMARY KEY (namespace, pipeline, run, id)
 ) STRICT;
