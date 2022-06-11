@@ -25,3 +25,4 @@
 - See where we can clean up some of the extra impls we made assuming we would import from models instead of a separate sdk
 - Separate store_keys into it's own table
 - Reevaluate if we need docker-cancellations
+- We can make an env package that doesn't suck.

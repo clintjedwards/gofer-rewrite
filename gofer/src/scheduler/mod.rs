@@ -1,5 +1,6 @@
 mod docker;
 
+use crate::conf;
 use crate::models::TaskRunState;
 use std::collections::HashMap;
 use std::io::BufRead;
@@ -8,6 +9,9 @@ use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum SchedulerError {
+    #[error("could not init scheduler; {0}")]
+    FailedPrecondition(String),
+
     #[error("could not connect to scheduler; {0}")]
     Connection(String),
 
@@ -81,9 +85,33 @@ pub struct GetLogsRequest {
 
 pub trait Scheduler {
     fn start_container(
+        &self,
         req: StartContainerRequest,
     ) -> Result<StartContainerResponse, SchedulerError>;
-    fn stop_container(req: StopContainerRequest) -> Result<(), SchedulerError>;
-    fn get_state(req: GetStateRequest) -> Result<GetStateResponse, SchedulerError>;
-    fn get_logs(req: GetLogsRequest) -> Result<Box<dyn BufRead>, SchedulerError>;
+    fn stop_container(&self, req: StopContainerRequest) -> Result<(), SchedulerError>;
+    fn get_state(&self, req: GetStateRequest) -> Result<GetStateResponse, SchedulerError>;
+    fn get_logs(&self, req: GetLogsRequest) -> Result<Box<dyn BufRead>, SchedulerError>;
+}
+
+pub enum SchedulerEngine {
+    Docker,
+}
+
+pub async fn init_scheduler(
+    engine: SchedulerEngine,
+    config: conf::api::Config,
+) -> Result<Box<dyn Scheduler>, SchedulerError> {
+    #[allow(clippy::match_single_binding)]
+    match engine {
+        SchedulerEngine::Docker => {
+            if let Some(config) = config.scheduler.docker {
+                let engine = docker::Engine::new(config.prune, config.prune_interval).await?;
+                Ok(Box::new(engine))
+            } else {
+                Err(SchedulerError::FailedPrecondition(
+                    "docker engine settings not found in config".into(),
+                ))
+            }
+        }
+    }
 }

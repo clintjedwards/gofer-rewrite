@@ -1,9 +1,11 @@
 use serde::Deserialize;
+use std::time::Duration;
 
 #[derive(Deserialize, Default, Debug, Clone)]
 pub struct Config {
     pub general: General,
     pub server: Server,
+    pub scheduler: Scheduler,
 }
 
 #[derive(Deserialize, Default, Debug, Clone)]
@@ -21,4 +23,15 @@ pub struct Server {
     pub storage_path: String,
     pub tls_cert: String,
     pub tls_key: String,
+}
+
+#[derive(Deserialize, Default, Debug, Clone)]
+pub struct Scheduler {
+    pub docker: Option<DockerScheduler>,
+}
+
+#[derive(Deserialize, Default, Debug, Clone)]
+pub struct DockerScheduler {
+    pub prune: bool,
+    pub prune_interval: Duration,
 }
