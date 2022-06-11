@@ -58,8 +58,12 @@ impl Db {
             ended: row.get::<i64, _>("ended") as u64,
             exit_code: row.get("exit_code"),
             failure: {
-                let failure_json = row.get::<String, _>("failure");
-                serde_json::from_str(&failure_json).unwrap()
+                let failure = row.get::<String, _>("failure");
+                if failure.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(&failure).unwrap()
+                }
             },
             logs_expired: {
                 let logs_expired = match row.get::<i64, _>("logs_expired") {
@@ -129,19 +133,25 @@ impl Db {
         .bind(task_run.started as i64)
         .bind(task_run.ended as i64)
         .bind(task_run.exit_code)
-        .bind(serde_json::to_string(&task_run.failure).unwrap())
+        .bind({
+            if task_run.failure.is_none() {
+                None
+            } else {
+                Some(serde_json::to_string(&task_run.failure).unwrap())
+            }
+        })
         .bind({
             let task_run_bool: i32 = match task_run.logs_expired {
-                true => 0,
-                false => 1,
+                false => 0,
+                true => 1,
             };
 
             task_run_bool
         })
         .bind({
             let task_run_bool: i32 = match task_run.logs_removed {
-                true => 0,
-                false => 1,
+                false => 0,
+                true => 1,
             };
 
             task_run_bool
@@ -187,10 +197,10 @@ impl Db {
 
         let task_run = sqlx::query(
             r#"
-        SELECT namespace, pipeline, run, id, task, created, started, ended, exit_code, failure
+        SELECT namespace, pipeline, run, id, task, created, started, ended, exit_code, failure,
         logs_expired, logs_removed, state, status, scheduler_id
         FROM task_runs
-        WHERE namespace = ? AND pipeline = ? AND run ? AND id = ?;
+        WHERE namespace = ? AND pipeline = ? AND run = ? AND id = ?;
             "#,
         )
         .bind(namespace)
@@ -211,8 +221,12 @@ impl Db {
             ended: row.get::<i64, _>("ended") as u64,
             exit_code: row.get("exit_code"),
             failure: {
-                let failure_json = row.get::<String, _>("failure");
-                serde_json::from_str(&failure_json).unwrap()
+                let failure = row.get::<String, _>("failure");
+                if failure.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(&failure).unwrap()
+                }
             },
             logs_expired: {
                 let logs_expired = match row.get::<i64, _>("logs_expired") {
@@ -342,26 +356,32 @@ impl Db {
             r#"
         UPDATE task_runs
         SET started = ?, ended = ?, exit_code = ?, failure = ?, logs_expired = ?, logs_removed = ?,
-        state = ?, status = ?, scheduler = ?
+        state = ?, status = ?, scheduler_id = ?
         WHERE namespace = ? AND pipeline = ? AND run =? AND id = ?;
             "#,
         )
         .bind(task_run.started as i64)
         .bind(task_run.ended as i64)
         .bind(task_run.exit_code)
-        .bind(serde_json::to_string(&task_run.failure).unwrap())
+        .bind({
+            if task_run.failure.is_none() {
+                None
+            } else {
+                Some(serde_json::to_string(&task_run.failure).unwrap())
+            }
+        })
         .bind({
             let task_run_bool: i32 = match task_run.logs_expired {
-                true => 0,
-                false => 1,
+                false => 0,
+                true => 1,
             };
 
             task_run_bool
         })
         .bind({
             let task_run_bool: i32 = match task_run.logs_removed {
-                true => 0,
-                false => 1,
+                false => 0,
+                true => 1,
             };
 
             task_run_bool
@@ -369,6 +389,10 @@ impl Db {
         .bind(task_run.state.to_string())
         .bind(task_run.status.to_string())
         .bind(&task_run.scheduler_id)
+        .bind(&task_run.namespace)
+        .bind(&task_run.pipeline)
+        .bind(task_run.run as i64)
+        .bind(&task_run.id)
         .execute(&mut conn)
         .map_ok(|_| ())
         .map_err(|e| match e {

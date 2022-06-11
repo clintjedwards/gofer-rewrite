@@ -529,8 +529,8 @@ impl Db {
         WHERE namespace = ? AND pipeline = ?;
             "#,
         )
-        .bind(pipeline.namespace.clone())
-        .bind(pipeline.id.clone())
+        .bind(&pipeline.namespace)
+        .bind(&pipeline.id)
         .map(|row: SqliteRow| PipelineTriggerSettings {
             kind: row.get("kind"),
             label: row.get("label"),
@@ -559,8 +559,8 @@ impl Db {
         WHERE namespace = ? AND pipeline = ?;
             "#,
         )
-        .bind(pipeline.namespace.clone())
-        .bind(pipeline.id.clone())
+        .bind(&pipeline.namespace)
+        .bind(&pipeline.id)
         .map(|row: SqliteRow| PipelineNotifierSettings {
             kind: row.get("kind"),
             label: row.get("label"),
@@ -663,8 +663,8 @@ impl Db {
         LIMIT 1;
             "#,
         )
-        .bind(pipeline.namespace.clone())
-        .bind(pipeline.id.clone())
+        .bind(&pipeline.namespace)
+        .bind(&pipeline.id)
         .map(|row: SqliteRow| Run {
             state: RunState::from_str(&row.get::<String, _>("state")).unwrap(),
         })

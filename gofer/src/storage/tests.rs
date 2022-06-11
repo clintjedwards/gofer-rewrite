@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::models::{self, RunState, RunTriggerInfo};
+use crate::models::{self, RunState, RunTriggerInfo, TaskRunState, TaskRunStatus};
 use rand::prelude::*;
 
 struct TestHarness {
@@ -261,7 +261,7 @@ async fn crud_task_runs() {
 
     harness.db.create_run(&test_run).await.unwrap();
 
-    let test_task_run = models::TaskRun::new(
+    let mut test_task_run = models::TaskRun::new(
         &test_namespace.id,
         &test_pipeline.id,
         test_run.id,
@@ -269,4 +269,116 @@ async fn crud_task_runs() {
     );
 
     harness.db.create_task_run(&test_task_run).await.unwrap();
+
+    let task_runs = harness
+        .db
+        .list_task_runs(0, 0, &test_namespace.id, &test_pipeline.id, test_run.id)
+        .await
+        .unwrap();
+
+    assert_eq!(task_runs.len(), 1);
+    assert_eq!(task_runs[0], test_task_run);
+
+    let task_run = harness
+        .db
+        .get_task_run(
+            &test_namespace.id,
+            &test_pipeline.id,
+            test_run.id,
+            &test_task_run.id,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(task_run, test_task_run);
+
+    test_task_run.state = TaskRunState::Complete;
+    harness.db.update_task_run(&test_task_run).await.unwrap();
+
+    let task_run = harness
+        .db
+        .get_task_run(
+            &test_namespace.id,
+            &test_pipeline.id,
+            test_run.id,
+            &test_task_run.id,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(task_run, test_task_run);
+
+    harness
+        .db
+        .update_task_run_state(
+            &test_task_run.namespace,
+            &test_task_run.pipeline,
+            test_task_run.run,
+            &test_task_run.id,
+            TaskRunState::Processing,
+        )
+        .await
+        .unwrap();
+
+    let task_run = harness
+        .db
+        .get_task_run(
+            &test_namespace.id,
+            &test_pipeline.id,
+            test_run.id,
+            &test_task_run.id,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(task_run.state, TaskRunState::Processing);
+
+    harness
+        .db
+        .update_task_run_status(
+            &test_task_run.namespace,
+            &test_task_run.pipeline,
+            test_task_run.run,
+            &test_task_run.id,
+            TaskRunStatus::Failed,
+        )
+        .await
+        .unwrap();
+
+    let task_run = harness
+        .db
+        .get_task_run(
+            &test_namespace.id,
+            &test_pipeline.id,
+            test_run.id,
+            &test_task_run.id,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(task_run.status, TaskRunStatus::Failed);
+
+    harness
+        .db
+        .delete_task_run(
+            &test_namespace.id,
+            &test_pipeline.id,
+            test_run.id,
+            &test_task_run.id,
+        )
+        .await
+        .unwrap();
+
+    let task_run = harness
+        .db
+        .get_task_run(
+            &test_namespace.id,
+            &test_pipeline.id,
+            test_run.id,
+            &test_task_run.id,
+        )
+        .await
+        .unwrap_err();
+
+    assert_eq!(task_run, StorageError::NotFound);
 }

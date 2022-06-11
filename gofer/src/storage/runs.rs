@@ -64,12 +64,16 @@ impl Db {
                 })
                 .unwrap(),
             failure_info: {
-                let run_failure_json = row.get::<String, _>("failure_info");
-                serde_json::from_str(&run_failure_json).unwrap()
+                let failure_info = row.get::<String, _>("failure_info");
+                if failure_info.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(&failure_info).unwrap()
+                }
             },
             task_runs: {
-                let task_run_json = row.get::<String, _>("task_runs");
-                serde_json::from_str(&task_run_json).unwrap()
+                let task_run = row.get::<String, _>("task_runs");
+                serde_json::from_str(&task_run).unwrap()
             },
             trigger: {
                 let trigger_info_json = row.get::<String, _>("trigger");
@@ -80,8 +84,12 @@ impl Db {
                 serde_json::from_str(&variables_json).unwrap()
             },
             store_info: {
-                let store_info_json = row.get::<String, _>("store_info");
-                serde_json::from_str(&store_info_json).unwrap()
+                let store_info = row.get::<String, _>("store_info");
+                if store_info.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(&store_info).unwrap()
+                }
             },
         })
         .fetch_all(&mut conn)
@@ -148,11 +156,23 @@ impl Db {
         .bind(run.ended as i64)
         .bind(run.state.to_string())
         .bind(run.status.to_string())
-        .bind(serde_json::to_string(&run.failure_info).unwrap())
+        .bind({
+            if run.failure_info.is_none() {
+                None
+            } else {
+                Some(serde_json::to_string(&run.failure_info).unwrap())
+            }
+        })
         .bind(serde_json::to_string(&run.task_runs).unwrap())
         .bind(serde_json::to_string(&run.trigger).unwrap())
         .bind(serde_json::to_string(&run.variables).unwrap())
-        .bind(serde_json::to_string(&run.store_info).unwrap())
+        .bind({
+            if run.store_info.is_none() {
+                None
+            } else {
+                Some(serde_json::to_string(&run.store_info).unwrap())
+            }
+        })
         .execute(&mut tx)
         .map_err(|e| match e {
             sqlx::Error::Database(database_err) => {
@@ -220,8 +240,12 @@ impl Db {
                 })
                 .unwrap(),
             failure_info: {
-                let run_failure_json = row.get::<String, _>("failure_info");
-                serde_json::from_str(&run_failure_json).unwrap()
+                let failure_info = row.get::<String, _>("failure_info");
+                if failure_info.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(&failure_info).unwrap()
+                }
             },
             task_runs: {
                 let task_run_json = row.get::<String, _>("task_runs");
@@ -236,8 +260,12 @@ impl Db {
                 serde_json::from_str(&variables_json).unwrap()
             },
             store_info: {
-                let store_info_json = row.get::<String, _>("store_info");
-                serde_json::from_str(&store_info_json).unwrap()
+                let store_info = row.get::<String, _>("store_info");
+                if store_info.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str(&store_info).unwrap()
+                }
             },
         })
         .fetch_one(&mut conn)
@@ -339,11 +367,23 @@ impl Db {
         .bind(run.ended as i64)
         .bind(run.state.to_string())
         .bind(run.status.to_string())
-        .bind(serde_json::to_string(&run.failure_info).unwrap())
+        .bind({
+            if run.failure_info.is_none() {
+                None
+            } else {
+                Some(serde_json::to_string(&run.failure_info).unwrap())
+            }
+        })
         .bind(serde_json::to_string(&run.task_runs).unwrap())
         .bind(serde_json::to_string(&run.trigger).unwrap())
         .bind(serde_json::to_string(&run.variables).unwrap())
-        .bind(serde_json::to_string(&run.store_info).unwrap())
+        .bind({
+            if run.store_info.is_none() {
+                None
+            } else {
+                Some(serde_json::to_string(&run.store_info).unwrap())
+            }
+        })
         .bind(&run.namespace)
         .bind(&run.pipeline)
         .bind(run.id as i64)

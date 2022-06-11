@@ -23,3 +23,4 @@
 - We should be more detailed on some of the parameters in proto, instead of 'id' use 'pipeline_id'
 - IN our integration testing test that cascading deletes works
 - See where we can clean up some of the extra impls we made assuming we would import from models instead of a separate sdk
+- Separate store_keys into it's own table
