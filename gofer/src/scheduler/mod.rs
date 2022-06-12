@@ -5,7 +5,6 @@ use crate::models::TaskRunState;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::io::BufRead;
-use std::time::Duration;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq)]
@@ -26,19 +25,21 @@ pub enum SchedulerError {
     Unknown(String),
 }
 
+#[derive(Debug)]
 pub struct Exec {
     pub shell: String,
     pub script: String,
 }
 
+#[derive(Debug)]
 pub struct RegistryAuth {
     pub user: String,
     pub pass: String,
 }
 
+#[derive(Debug)]
 pub struct StartContainerRequest {
-    /// A unique identifier passed by the caller to name the container; this usually maps back to a scheduler
-    /// specific unique identifier, returned when the container starts.
+    /// A unique identifier to identify the container with.
     pub name: String,
     /// The docker image repository and docker image name; tag can be included.
     pub image_name: String,
@@ -56,25 +57,32 @@ pub struct StartContainerRequest {
     pub exec: Option<Exec>,
 }
 
+#[derive(Debug)]
 pub struct StartContainerResponse {
-    /// A unique way for the scheduler to identify the container.
-    pub scheduler_id: String,
+    /// An optional, unique way for the scheduler to identify the container. Sometimes the scheduler
+    /// will not be able to use the client provided container name as a unique identifier and will
+    /// return it's own identifier. In these cases the client will have to store the scheduler's id
+    /// for further use.
+    pub scheduler_id: Option<String>,
     /// An endpoint that only is returned for containers with networking set to on.
     pub url: Option<String>,
 }
 
+#[derive(Debug)]
 pub struct StopContainerRequest {
-    /// Unique identifier for container to stop.
-    pub scheduler_id: String,
+    /// A unique identifier to identify the container with.
+    pub name: String,
     /// The total time the scheduler should wait for a graceful stop before issuing a SIGKILL.
-    pub timeout: Duration,
+    pub timeout: i64,
 }
 
+#[derive(Debug)]
 pub struct GetStateRequest {
     /// Unique identifier for container to stop.
-    pub scheduler_id: String,
+    pub name: String,
 }
 
+#[derive(Debug)]
 pub struct GetStateResponse {
     /// In the event that the container is in a "complete" state; the exit code of that container.
     pub exit_code: Option<u8>,
@@ -82,9 +90,10 @@ pub struct GetStateResponse {
     pub state: TaskRunState,
 }
 
+#[derive(Debug)]
 pub struct GetLogsRequest {
     /// Unique identifier for container to stop.
-    pub scheduler_id: String,
+    pub name: String,
 }
 
 #[async_trait]

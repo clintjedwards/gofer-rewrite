@@ -26,3 +26,7 @@
 - Separate store_keys into it's own table
 - Reevaluate if we need docker-cancellations
 - We can make an env package that doesn't suck.
+- Map will preserve a None type if it is still there, go back and look over the database package and fix what might be.
+- Purely for recovering lost containers, we can usually query the engine to ask it what time this container
+  stopped and started. This way we can have more accurate running times instead of just leaving it as whenever
+  the server restarted.

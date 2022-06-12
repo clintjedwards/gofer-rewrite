@@ -1,4 +1,7 @@
-use crate::scheduler::{Scheduler, SchedulerError, StartContainerRequest, StartContainerResponse};
+use crate::models::TaskRunState;
+use crate::scheduler::{
+    GetStateRequest, Scheduler, SchedulerError, StartContainerRequest, StartContainerResponse,
+};
 use async_trait::async_trait;
 use futures::TryStreamExt;
 use slog_scope::{debug, error};
@@ -54,6 +57,8 @@ impl Engine {
 
                 tokio::time::sleep(prune_interval).await;
             });
+
+            debug!("started docker pruning"; "interval" => format!("{:?}",prune_interval));
         }
 
         debug!("local docker scheduler successfully connected"; "version" => format!("{:?}", version));
@@ -196,7 +201,7 @@ impl Scheduler for Engine {
             .map_err(|e| SchedulerError::Unknown(e.to_string()))?;
 
         let mut response = StartContainerResponse {
-            scheduler_id: created_container.id,
+            scheduler_id: Some(created_container.id),
             url: None,
         };
 
@@ -204,6 +209,7 @@ impl Scheduler for Engine {
             let network_settings = container_info.network_settings.ok_or_else(|| {
                 SchedulerError::Unknown("could not get networking settings".to_string())
             })?;
+
             let ports = network_settings.ports.ok_or_else(|| {
                 SchedulerError::Unknown("could not get networking settings".to_string())
             })?;
@@ -227,7 +233,15 @@ impl Scheduler for Engine {
     }
 
     async fn stop_container(&self, req: super::StopContainerRequest) -> Result<(), SchedulerError> {
-        unimplemented!()
+        self.client
+            .stop_container(
+                &req.name,
+                Some(bollard::container::StopContainerOptions { t: req.timeout }),
+            )
+            .await
+            .map_err(|e| SchedulerError::Unknown(e.to_string()))?;
+
+        Ok(())
     }
 
     async fn get_logs(
@@ -241,12 +255,41 @@ impl Scheduler for Engine {
         &self,
         req: super::GetStateRequest,
     ) -> Result<super::GetStateResponse, SchedulerError> {
-        unimplemented!()
+        let container_info = self
+            .client
+            .inspect_container(&req.name, None)
+            .await
+            .map_err(|e| SchedulerError::Unknown(e.to_string()))?;
+
+        match container_info.state.as_ref().unwrap().status.unwrap() {
+            bollard::models::ContainerStateStatusEnum::CREATED
+            | bollard::models::ContainerStateStatusEnum::RUNNING => {
+                return Ok(super::GetStateResponse {
+                    exit_code: None,
+                    state: TaskRunState::Running,
+                });
+            }
+            bollard::models::ContainerStateStatusEnum::EXITED => {
+                dbg!(&container_info.state);
+                return Ok(super::GetStateResponse {
+                    exit_code: Some(container_info.state.unwrap().exit_code.unwrap() as u8),
+                    state: TaskRunState::Complete,
+                });
+            }
+            _ => {
+                return Ok(super::GetStateResponse {
+                    exit_code: None,
+                    state: TaskRunState::Unknown,
+                })
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::scheduler::StopContainerRequest;
+
     use super::*;
 
     #[tokio::test]
@@ -259,10 +302,27 @@ mod tests {
                 variables: HashMap::new(),
                 registry_auth: None,
                 always_pull: true,
-                enable_networking: true,
+                enable_networking: false,
                 exec: None,
             })
             .await
             .unwrap();
+
+        engine
+            .stop_container(StopContainerRequest {
+                name: "container_test".to_string(),
+                timeout: 100,
+            })
+            .await
+            .unwrap();
+
+        let status = engine
+            .get_state(GetStateRequest {
+                name: "container_test".to_string(),
+            })
+            .await
+            .unwrap();
+
+        dbg!(status);
     }
 }
