@@ -6,9 +6,11 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.57"
 axum = "0.5.4"
+async-trait = "0.1.56"
 axum-server = { version = "0.4.0", features = ["tls-rustls"] }
 chrono = "0.4.19"
 chrono-humanize = "0.2.1"
+base64 = "0.13.0"
 bollard = "0.12"
 clap = { version = "3.1.8", features = ["derive"] }
 colored = "2.0.0"

@@ -2,6 +2,7 @@ mod docker;
 
 use crate::conf;
 use crate::models::TaskRunState;
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::io::BufRead;
 use std::time::Duration;
@@ -18,8 +19,8 @@ pub enum SchedulerError {
     #[error("container not found")]
     NoSuchContainer,
 
-    #[error("docker image not found")]
-    NoSuchImage,
+    #[error("docker image not found; {0}")]
+    NoSuchImage(String),
 
     #[error("unexpected scheduler error occurred; {0}")]
     Unknown(String),
@@ -30,6 +31,11 @@ pub struct Exec {
     pub script: String,
 }
 
+pub struct RegistryAuth {
+    pub user: String,
+    pub pass: String,
+}
+
 pub struct StartContainerRequest {
     /// A unique identifier passed by the caller to name the container; this usually maps back to a scheduler
     /// specific unique identifier, returned when the container starts.
@@ -38,10 +44,8 @@ pub struct StartContainerRequest {
     pub image_name: String,
     /// Environment variables to be passed to the container.
     pub variables: HashMap<String, String>,
-    /// Username for docker auth registry.
-    pub registry_user: String,
-    /// Password for docker auth registry.
-    pub registry_pass: String,
+    /// Registry authentication details.
+    pub registry_auth: Option<RegistryAuth>,
     /// Attempt to pull the container from the upstream repository even if it exists already locally.
     /// This is useful if your containers don't use proper tagging or versioning.
     pub always_pull: bool,
@@ -53,7 +57,7 @@ pub struct StartContainerRequest {
 }
 
 pub struct StartContainerResponse {
-    /// A unique way for the scheduler to identify the container. Is only obtained upon the container successfully starting.
+    /// A unique way for the scheduler to identify the container.
     pub scheduler_id: String,
     /// An endpoint that only is returned for containers with networking set to on.
     pub url: Option<String>,
@@ -83,14 +87,15 @@ pub struct GetLogsRequest {
     pub scheduler_id: String,
 }
 
+#[async_trait]
 pub trait Scheduler {
-    fn start_container(
+    async fn start_container(
         &self,
         req: StartContainerRequest,
     ) -> Result<StartContainerResponse, SchedulerError>;
-    fn stop_container(&self, req: StopContainerRequest) -> Result<(), SchedulerError>;
-    fn get_state(&self, req: GetStateRequest) -> Result<GetStateResponse, SchedulerError>;
-    fn get_logs(&self, req: GetLogsRequest) -> Result<Box<dyn BufRead>, SchedulerError>;
+    async fn stop_container(&self, req: StopContainerRequest) -> Result<(), SchedulerError>;
+    async fn get_state(&self, req: GetStateRequest) -> Result<GetStateResponse, SchedulerError>;
+    async fn get_logs(&self, req: GetLogsRequest) -> Result<Box<dyn BufRead>, SchedulerError>;
 }
 
 pub enum SchedulerEngine {
