@@ -1,5 +1,5 @@
 [package]
-name = "gofer-rewrite"
+name = "gofer"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,6 +8,7 @@ anyhow = "1.0.57"
 axum = "0.5.4"
 async-trait = "0.1.56"
 axum-server = { version = "0.4.0", features = ["tls-rustls"] }
+bytes = "1.1.0"
 chrono = "0.4.19"
 chrono-humanize = "0.2.1"
 base64 = "0.13.0"

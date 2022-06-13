@@ -834,7 +834,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gofer-rewrite"
+name = "gofer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -843,6 +843,7 @@ dependencies = [
  "axum-server",
  "base64",
  "bollard",
+ "bytes",
  "chrono",
  "chrono-humanize",
  "clap",
@@ -893,7 +894,6 @@ dependencies = [
  "lazy-regex",
  "serde",
  "serde_json",
- "strum 0.24.0",
  "thiserror",
 ]
 

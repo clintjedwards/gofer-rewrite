@@ -3,34 +3,44 @@ mod docker;
 use crate::conf;
 use crate::models::TaskRunState;
 use async_trait::async_trait;
-use std::collections::HashMap;
-use std::io::BufRead;
-use thiserror::Error;
+use futures::Stream;
+use std::{collections::HashMap, pin::Pin};
 
-#[derive(Error, Debug, PartialEq, Eq)]
+/// Represents different scheduler failure possibilities.
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum SchedulerError {
+    /// Failed to start scheduled due to misconfigured settings, usually from a misconfigured settings file.
     #[error("could not init scheduler; {0}")]
+    #[allow(dead_code)]
     FailedPrecondition(String),
 
+    /// Failed to communicate with scheduler due to network error or other.
     #[error("could not connect to scheduler; {0}")]
+    #[allow(dead_code)]
     Connection(String),
 
-    #[error("container not found")]
-    NoSuchContainer,
+    /// Container requested by name could not be found.
+    #[error("container not found; {0}")]
+    NoSuchContainer(String),
 
+    /// Image requested by name could not be found.
     #[error("docker image not found; {0}")]
     NoSuchImage(String),
 
+    /// An expected and unknown error has occurred.
     #[error("unexpected scheduler error occurred; {0}")]
     Unknown(String),
 }
 
+/// It is sometimes desirable for someone to run a different entrypoint with their container.
+/// This represents the shell and script of that entrypoint.
 #[derive(Debug)]
 pub struct Exec {
     pub shell: String,
     pub script: String,
 }
 
+/// Private repositories sometimes require authentication.
 #[derive(Debug)]
 pub struct RegistryAuth {
     pub user: String,
@@ -96,15 +106,35 @@ pub struct GetLogsRequest {
     pub name: String,
 }
 
+/// Represents a single log line/entry from a particular container.
+#[derive(Debug)]
+pub enum Log {
+    Unknown,
+    Stdout(bytes::Bytes),
+    Stderr(bytes::Bytes),
+}
+
+/// The scheduler trait defines what the interface between Gofer and a container scheduler should look like.
 #[async_trait]
 pub trait Scheduler {
+    /// Start a container based on details passed; Should implement automatically pulling and registry auth
+    /// of container if necessary.
     async fn start_container(
         &self,
         req: StartContainerRequest,
     ) -> Result<StartContainerResponse, SchedulerError>;
+
+    /// Kill a container with an associated timeout if the container does not response to graceful shutdown.
     async fn stop_container(&self, req: StopContainerRequest) -> Result<(), SchedulerError>;
+
+    /// Get the current state of container and potential exit code.
     async fn get_state(&self, req: GetStateRequest) -> Result<GetStateResponse, SchedulerError>;
-    async fn get_logs(&self, req: GetLogsRequest) -> Result<Box<dyn BufRead>, SchedulerError>;
+
+    /// Returns a stream of logs from the container.
+    fn get_logs(
+        &self,
+        req: GetLogsRequest,
+    ) -> Pin<Box<dyn Stream<Item = Result<Log, SchedulerError>>>>;
 }
 
 pub enum SchedulerEngine {
@@ -113,12 +143,12 @@ pub enum SchedulerEngine {
 
 pub async fn init_scheduler(
     engine: SchedulerEngine,
-    config: conf::api::Config,
+    config: conf::api::Scheduler,
 ) -> Result<Box<dyn Scheduler>, SchedulerError> {
     #[allow(clippy::match_single_binding)]
     match engine {
         SchedulerEngine::Docker => {
-            if let Some(config) = config.scheduler.docker {
+            if let Some(config) = config.docker {
                 let engine = docker::Engine::new(config.prune, config.prune_interval).await?;
                 Ok(Box::new(engine))
             } else {

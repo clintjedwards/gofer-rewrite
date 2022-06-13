@@ -1,27 +1,22 @@
+use super::*;
 use crate::models::TaskRunState;
-use crate::scheduler::{
-    GetStateRequest, Scheduler, SchedulerError, StartContainerRequest, StartContainerResponse,
-};
 use async_trait::async_trait;
-use futures::TryStreamExt;
+use futures::stream::TryStreamExt;
+use futures::Stream;
 use slog_scope::{debug, error};
-use std::time::Duration;
+use std::pin::Pin;
 use std::{collections::HashMap, sync::Arc};
 
 fn format_env_var(key: &str, value: &str) -> String {
     return format!("{}={}", key, value);
 }
 
-// fn format_registry_auth(user: &str, pass: &str) -> String {
-//     return encode(format!("{}:{}", user, pass));
-// }
-
 pub struct Engine {
     client: Arc<bollard::Docker>,
 }
 
 impl Engine {
-    pub async fn new(prune: bool, prune_interval: Duration) -> Result<Self, SchedulerError> {
+    pub async fn new(prune: bool, prune_interval: u64) -> Result<Self, SchedulerError> {
         let client = bollard::Docker::connect_with_socket_defaults().map_err(|e| {
             SchedulerError::Connection(format!(
                 "{}; Make sure the Docker daemon is installed and running.",
@@ -55,7 +50,7 @@ impl Engine {
                     }
                 };
 
-                tokio::time::sleep(prune_interval).await;
+                tokio::time::sleep(std::time::Duration::new(prune_interval, 0)).await;
             });
 
             debug!("started docker pruning"; "interval" => format!("{:?}",prune_interval));
@@ -71,8 +66,8 @@ impl Engine {
 impl Scheduler for Engine {
     async fn start_container(
         &self,
-        req: super::StartContainerRequest,
-    ) -> Result<super::StartContainerResponse, SchedulerError> {
+        req: StartContainerRequest,
+    ) -> Result<StartContainerResponse, SchedulerError> {
         let credentials = req
             .registry_auth
             .as_ref()
@@ -232,52 +227,66 @@ impl Scheduler for Engine {
         Ok(response)
     }
 
-    async fn stop_container(&self, req: super::StopContainerRequest) -> Result<(), SchedulerError> {
+    async fn stop_container(&self, req: StopContainerRequest) -> Result<(), SchedulerError> {
         self.client
             .stop_container(
                 &req.name,
                 Some(bollard::container::StopContainerOptions { t: req.timeout }),
             )
             .await
-            .map_err(|e| SchedulerError::Unknown(e.to_string()))?;
+            .map_err(|e| SchedulerError::NoSuchContainer(e.to_string()))?;
 
         Ok(())
     }
 
-    async fn get_logs(
+    fn get_logs(
         &self,
-        req: super::GetLogsRequest,
-    ) -> Result<Box<dyn std::io::BufRead>, SchedulerError> {
-        unimplemented!()
+        req: GetLogsRequest,
+    ) -> Pin<Box<dyn Stream<Item = Result<Log, SchedulerError>>>> {
+        let logs_options = bollard::container::LogsOptions::<String> {
+            follow: true,
+            stdout: true,
+            stderr: true,
+            ..Default::default()
+        };
+
+        let logs = self.client.logs(&req.name, Some(logs_options));
+
+        let logs = logs
+            .map_ok(|log| match log {
+                bollard::container::LogOutput::StdOut { message } => Log::Stdout(message),
+                bollard::container::LogOutput::StdErr { message } => Log::Stderr(message),
+                _ => Log::Unknown,
+            })
+            .map_err(|e| SchedulerError::NoSuchContainer(e.to_string()));
+
+        Box::pin(logs)
     }
 
-    async fn get_state(
-        &self,
-        req: super::GetStateRequest,
-    ) -> Result<super::GetStateResponse, SchedulerError> {
+    async fn get_state(&self, req: GetStateRequest) -> Result<GetStateResponse, SchedulerError> {
         let container_info = self
             .client
             .inspect_container(&req.name, None)
             .await
-            .map_err(|e| SchedulerError::Unknown(e.to_string()))?;
+            .map_err(|e| SchedulerError::NoSuchContainer(e.to_string()))?;
 
         match container_info.state.as_ref().unwrap().status.unwrap() {
             bollard::models::ContainerStateStatusEnum::CREATED
             | bollard::models::ContainerStateStatusEnum::RUNNING => {
-                return Ok(super::GetStateResponse {
+                return Ok(GetStateResponse {
                     exit_code: None,
                     state: TaskRunState::Running,
                 });
             }
             bollard::models::ContainerStateStatusEnum::EXITED => {
                 dbg!(&container_info.state);
-                return Ok(super::GetStateResponse {
+                return Ok(GetStateResponse {
                     exit_code: Some(container_info.state.unwrap().exit_code.unwrap() as u8),
                     state: TaskRunState::Complete,
                 });
             }
             _ => {
-                return Ok(super::GetStateResponse {
+                return Ok(GetStateResponse {
                     exit_code: None,
                     state: TaskRunState::Unknown,
                 })
@@ -286,43 +295,51 @@ impl Scheduler for Engine {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::scheduler::StopContainerRequest;
+// #[cfg(test)]
+// mod tests {
+//     use crate::scheduler::GetLogsRequest;
+//     use futures::stream::StreamExt;
+//     use std::time::Duration;
 
-    use super::*;
+//     use super::*;
 
-    #[tokio::test]
-    async fn hello() {
-        let engine = Engine::new(true, Duration::new(100, 0)).await.unwrap();
-        engine
-            .start_container(StartContainerRequest {
-                name: "container_test".to_string(),
-                image_name: "ghcr.io/clintjedwards/gofer-containers/debug/log:latest".to_string(),
-                variables: HashMap::new(),
-                registry_auth: None,
-                always_pull: true,
-                enable_networking: false,
-                exec: None,
-            })
-            .await
-            .unwrap();
+//     #[tokio::test]
+//     async fn hello() {
+//         let engine = Engine::new(true, 100).await.unwrap();
+//         engine
+//             .start_container(StartContainerRequest {
+//                 name: "container_test".to_string(),
+//                 image_name: "ghcr.io/clintjedwards/gofer-containers/debug/log:latest".to_string(),
+//                 variables: HashMap::new(),
+//                 registry_auth: None,
+//                 always_pull: true,
+//                 enable_networking: false,
+//                 exec: None,
+//             })
+//             .await
+//             .unwrap();
 
-        engine
-            .stop_container(StopContainerRequest {
-                name: "container_test".to_string(),
-                timeout: 100,
-            })
-            .await
-            .unwrap();
+//         // engine
+//         //     .stop_container(StopContainerRequest {
+//         //         name: "container_test".to_string(),
+//         //         timeout: 100,
+//         //     })
+//         //     .await
+//         //     .unwrap();
 
-        let status = engine
-            .get_state(GetStateRequest {
-                name: "container_test".to_string(),
-            })
-            .await
-            .unwrap();
+//         // let status = engine
+//         //     .get_state(GetStateRequest {
+//         //         name: "container_test".to_string(),
+//         //     })
+//         //     .await
+//         //     .unwrap();
 
-        dbg!(status);
-    }
-}
+//         let mut logs = engine.get_logs(GetLogsRequest {
+//             name: "container_test".to_string(),
+//         });
+
+//         while let Some(foo) = logs.next().await {
+//             dbg!(foo);
+//         }
+//     }
+// }

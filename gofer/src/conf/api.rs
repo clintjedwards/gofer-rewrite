@@ -33,5 +33,5 @@ pub struct Scheduler {
 #[derive(Deserialize, Default, Debug, Clone)]
 pub struct DockerScheduler {
     pub prune: bool,
-    pub prune_interval: Duration,
+    pub prune_interval: u64, // in seconds
 }
