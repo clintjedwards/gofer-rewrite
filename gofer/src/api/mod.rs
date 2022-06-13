@@ -10,7 +10,9 @@ use gofer_proto::{
     *,
 };
 
+use futures::Stream;
 use slog_scope::info;
+use std::pin::Pin;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 use tonic::{Request, Response, Status};
@@ -531,6 +533,44 @@ impl Gofer for Api {
         &self,
         request: Request<CancelAllRunsRequest>,
     ) -> Result<Response<CancelAllRunsResponse>, Status> {
+        todo!()
+    }
+
+    async fn get_task_run(
+        &self,
+        request: Request<GetTaskRunRequest>,
+    ) -> Result<Response<GetTaskRunResponse>, Status> {
+        todo!()
+    }
+
+    async fn list_task_runs(
+        &self,
+        request: Request<ListTaskRunsRequest>,
+    ) -> Result<Response<ListTaskRunsResponse>, Status> {
+        todo!()
+    }
+
+    async fn cancel_task_run(
+        &self,
+        request: Request<CancelTaskRunRequest>,
+    ) -> Result<Response<CancelTaskRunResponse>, Status> {
+        todo!()
+    }
+
+    type GetTaskRunLogsStream =
+        Pin<Box<dyn Stream<Item = Result<GetTaskRunLogsResponse, Status>> + Send>>;
+
+    async fn get_task_run_logs(
+        &self,
+        request: Request<GetTaskRunLogsRequest>,
+    ) -> Result<Response<Self::GetTaskRunLogsStream>, Status> {
+        todo!()
+    }
+
+    async fn delete_task_run_logs(
+        &self,
+        request: Request<DeleteTaskRunLogsRequest>,
+    ) -> Result<Response<DeleteTaskRunLogsResponse>, Status> {
         todo!()
     }
 }

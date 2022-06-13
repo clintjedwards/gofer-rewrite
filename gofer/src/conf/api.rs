@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use std::time::Duration;
 
 #[derive(Deserialize, Default, Debug, Clone)]
 pub struct Config {

@@ -188,3 +188,47 @@ message PipelineNotifierConfig {
   string label = 2;
   map<string, string> settings = 3;
 }
+
+message TaskRunFailure {
+  enum Kind {
+    UNKNOWN = 0;
+    ABNORMAL_EXIT = 1;
+    SCHEDULER_ERROR = 2;
+    FAILED_PRECONDITION = 3;
+    CANCELLED = 4;
+    ORPHANED = 5;
+  }
+  Kind kind = 1;
+  string description = 2;
+}
+
+message TaskRun {
+  uint64 created = 1;
+  uint64 ended = 2;
+  uint64 exit_code = 3;
+  TaskRunFailure failure = 4;
+  string id = 5;
+  bool logs_expired = 6;
+  bool logs_removed = 7;
+  string namespace_id = 8;
+  string pipeline_id = 9;
+  uint64 run_id = 10;
+  string scheduler_id = 11;
+  uint64 started = 12;
+  enum State {
+    UNKNOWN_STATE = 0;
+    PROCESSING = 1;
+    RUNNING = 3;
+    COMPLETE = 4;
+  }
+  State state = 13;
+  enum Status {
+    UNKNOWN_STATUS = 0;
+    SUCCESSFUL = 1;
+    FAILED = 2;
+    CANCELLED = 3;
+    SKIPPED = 4;
+  }
+  Status status = 14;
+  Task task = 15;
+}

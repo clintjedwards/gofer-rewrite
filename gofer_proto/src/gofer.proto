@@ -110,4 +110,35 @@ service Gofer {
   // CancelAllRuns stops the execution of any in-progress runs for a specific
   // pipeline by ID.
   rpc CancelAllRuns(CancelAllRunsRequest) returns (CancelAllRunsResponse);
+
+  ////////////// Task Run RPCs //////////////
+  //
+  // A task run is the lowest unit of execution for a gofer pipeline. A task run
+  // is the tracking of a task, which is to say a task run is simply the
+  // tracking of a container that is in the act of being executed.
+
+  // GetTaskRun returns the details of a single task run.
+  rpc GetTaskRun(GetTaskRunRequest) returns (GetTaskRunResponse);
+
+  // ListTaskRuns returns all task runs for a current run by ID.
+  rpc ListTaskRuns(ListTaskRunsRequest) returns (ListTaskRunsResponse);
+
+  // CancelTaskRun cancels a specific task run, sending the related container a
+  // SIGINT signal. If the force flag is used we instead send the container a
+  // SIGKILL signal.
+  //
+  // Task runs that are cancelled can cause other downstream task runs to be
+  // skipped depending on those downstream task run dependencies.
+  rpc CancelTaskRun(CancelTaskRunRequest) returns (CancelTaskRunResponse);
+
+  // GetTaskRunLogs returns logs for a specific task run line by line in a
+  // stream. The logs are returns with both STDOUT and STDERR of the associated
+  // container combined.
+  rpc GetTaskRunLogs(GetTaskRunLogsRequest)
+      returns (stream GetTaskRunLogsResponse);
+
+  // DeleteTaskRunLogs removes a task run's associated log object. This is
+  // useful for if logs mistakenly contain sensitive data.
+  rpc DeleteTaskRunLogs(DeleteTaskRunLogsRequest)
+      returns (DeleteTaskRunLogsResponse);
 }

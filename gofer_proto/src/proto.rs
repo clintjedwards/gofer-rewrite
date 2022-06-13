@@ -284,6 +284,79 @@ pub struct PipelineNotifierConfig {
     #[prost(map="string, string", tag="3")]
     pub settings: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TaskRunFailure {
+    #[prost(enumeration="task_run_failure::Kind", tag="1")]
+    pub kind: i32,
+    #[prost(string, tag="2")]
+    pub description: ::prost::alloc::string::String,
+}
+/// Nested message and enum types in `TaskRunFailure`.
+pub mod task_run_failure {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum Kind {
+        Unknown = 0,
+        AbnormalExit = 1,
+        SchedulerError = 2,
+        FailedPrecondition = 3,
+        Cancelled = 4,
+        Orphaned = 5,
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TaskRun {
+    #[prost(uint64, tag="1")]
+    pub created: u64,
+    #[prost(uint64, tag="2")]
+    pub ended: u64,
+    #[prost(uint64, tag="3")]
+    pub exit_code: u64,
+    #[prost(message, optional, tag="4")]
+    pub failure: ::core::option::Option<TaskRunFailure>,
+    #[prost(string, tag="5")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(bool, tag="6")]
+    pub logs_expired: bool,
+    #[prost(bool, tag="7")]
+    pub logs_removed: bool,
+    #[prost(string, tag="8")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="10")]
+    pub run_id: u64,
+    #[prost(string, tag="11")]
+    pub scheduler_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="12")]
+    pub started: u64,
+    #[prost(enumeration="task_run::State", tag="13")]
+    pub state: i32,
+    #[prost(enumeration="task_run::Status", tag="14")]
+    pub status: i32,
+    #[prost(message, optional, tag="15")]
+    pub task: ::core::option::Option<Task>,
+}
+/// Nested message and enum types in `TaskRun`.
+pub mod task_run {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum State {
+        UnknownState = 0,
+        Processing = 1,
+        Running = 3,
+        Complete = 4,
+    }
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum Status {
+        UnknownStatus = 0,
+        Successful = 1,
+        Failed = 2,
+        Cancelled = 3,
+        Skipped = 4,
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum VariableOwner {
@@ -389,12 +462,12 @@ pub struct GetPipelineResponse {
 pub struct ListPipelinesRequest {
     /// offset is a pagination parameter that defines where to start when counting
     /// the list of pipelines to return.
-    #[prost(int64, tag="1")]
-    pub offset: i64,
+    #[prost(uint64, tag="1")]
+    pub offset: u64,
     /// limit is a pagination parameter that defines how many pipelines to return
     /// per result.
-    #[prost(int64, tag="2")]
-    pub limit: i64,
+    #[prost(uint64, tag="2")]
+    pub limit: u64,
     /// Unique namespace identifier
     #[prost(string, tag="3")]
     pub namespace_id: ::prost::alloc::string::String,
@@ -493,8 +566,8 @@ pub struct GetRunRequest {
     #[prost(string, tag="2")]
     pub pipeline_id: ::prost::alloc::string::String,
     /// Run ID
-    #[prost(int64, tag="3")]
-    pub id: i64,
+    #[prost(uint64, tag="3")]
+    pub id: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetRunResponse {
@@ -509,8 +582,8 @@ pub struct BatchGetRunsRequest {
     #[prost(string, tag="2")]
     pub pipeline_id: ::prost::alloc::string::String,
     /// Run IDs
-    #[prost(int64, repeated, tag="3")]
-    pub ids: ::prost::alloc::vec::Vec<i64>,
+    #[prost(uint64, repeated, tag="3")]
+    pub ids: ::prost::alloc::vec::Vec<u64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BatchGetRunsResponse {
@@ -521,12 +594,12 @@ pub struct BatchGetRunsResponse {
 pub struct ListRunsRequest {
     /// offset is a pagination parameter that defines where to start when
     /// counting the list of pipelines to return
-    #[prost(int64, tag="1")]
-    pub offset: i64,
+    #[prost(uint64, tag="1")]
+    pub offset: u64,
     /// limit is a pagination parameter that defines how many pipelines to return
     /// per result.
-    #[prost(int64, tag="2")]
-    pub limit: i64,
+    #[prost(uint64, tag="2")]
+    pub limit: u64,
     /// Unique namespace identifier
     #[prost(string, tag="3")]
     pub namespace_id: ::prost::alloc::string::String,
@@ -563,8 +636,8 @@ pub struct RetryRunRequest {
     #[prost(string, tag="2")]
     pub pipeline_id: ::prost::alloc::string::String,
     /// Run ID
-    #[prost(int64, tag="3")]
-    pub id: i64,
+    #[prost(uint64, tag="3")]
+    pub id: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RetryRunResponse {
@@ -579,8 +652,8 @@ pub struct CancelRunRequest {
     #[prost(string, tag="2")]
     pub pipeline_id: ::prost::alloc::string::String,
     /// Run ID
-    #[prost(int64, tag="3")]
-    pub id: i64,
+    #[prost(uint64, tag="3")]
+    pub id: u64,
     /// force will cause Gofer to hard kill any outstanding task run containers.
     /// Usually this means that the container receives a SIGKILL.
     #[prost(bool, tag="4")]
@@ -603,8 +676,101 @@ pub struct CancelAllRunsRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CancelAllRunsResponse {
-    #[prost(int64, repeated, tag="1")]
-    pub runs: ::prost::alloc::vec::Vec<i64>,
+    #[prost(uint64, repeated, tag="1")]
+    pub runs: ::prost::alloc::vec::Vec<u64>,
+}
+////////////// Task Run Transport Models //////////////
+
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListTaskRunsRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub run_id: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListTaskRunsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub task_runs: ::prost::alloc::vec::Vec<TaskRun>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetTaskRunRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub run_id: u64,
+    /// Task Run ID
+    #[prost(string, tag="4")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetTaskRunResponse {
+    #[prost(message, optional, tag="1")]
+    pub task_run: ::core::option::Option<TaskRun>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CancelTaskRunRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub run_id: u64,
+    /// Task Run ID
+    #[prost(string, tag="4")]
+    pub id: ::prost::alloc::string::String,
+    /// force will cause Gofer to hard kill this task run containers.
+    /// Usually this means that the container receives a SIGKILL.
+    #[prost(bool, tag="5")]
+    pub force: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CancelTaskRunResponse {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetTaskRunLogsRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub run_id: u64,
+    /// Task Run ID
+    #[prost(string, tag="4")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetTaskRunLogsResponse {
+    /// The string content of the current log line.
+    #[prost(string, tag="1")]
+    pub log_line: ::prost::alloc::string::String,
+    /// The current line number.
+    #[prost(uint64, tag="2")]
+    pub line_num: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeleteTaskRunLogsRequest {
+    /// Unique namespace identifier
+    #[prost(string, tag="1")]
+    pub namespace_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub pipeline_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub run_id: u64,
+    /// Task Run ID
+    #[prost(string, tag="4")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeleteTaskRunLogsResponse {
 }
 /// Generated client implementations.
 pub mod gofer_client {
@@ -1095,6 +1261,113 @@ pub mod gofer_client {
             );
             self.inner.unary(request.into_request(), path, codec).await
         }
+        /// GetTaskRun returns the details of a single task run.
+        pub async fn get_task_run(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetTaskRunRequest>,
+        ) -> Result<tonic::Response<super::GetTaskRunResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/GetTaskRun");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// ListTaskRuns returns all task runs for a current run by ID.
+        pub async fn list_task_runs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListTaskRunsRequest>,
+        ) -> Result<tonic::Response<super::ListTaskRunsResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/ListTaskRuns");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// CancelTaskRun cancels a specific task run, sending the related container a
+        /// SIGINT signal. If the force flag is used we instead send the container a
+        /// SIGKILL signal.
+        ///
+        /// Task runs that are cancelled can cause other downstream task runs to be
+        /// skipped depending on those downstream task run dependencies.
+        pub async fn cancel_task_run(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CancelTaskRunRequest>,
+        ) -> Result<tonic::Response<super::CancelTaskRunResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/CancelTaskRun",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /// GetTaskRunLogs returns logs for a specific task run line by line in a
+        /// stream. The logs are returns with both STDOUT and STDERR of the associated
+        /// container combined.
+        pub async fn get_task_run_logs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetTaskRunLogsRequest>,
+        ) -> Result<
+            tonic::Response<tonic::codec::Streaming<super::GetTaskRunLogsResponse>>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/GetTaskRunLogs",
+            );
+            self.inner.server_streaming(request.into_request(), path, codec).await
+        }
+        /// DeleteTaskRunLogs removes a task run's associated log object. This is
+        /// useful for if logs mistakenly contain sensitive data.
+        pub async fn delete_task_run_logs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DeleteTaskRunLogsRequest>,
+        ) -> Result<tonic::Response<super::DeleteTaskRunLogsResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proto.Gofer/DeleteTaskRunLogs",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -1232,6 +1505,45 @@ pub mod gofer_server {
             &self,
             request: tonic::Request<super::CancelAllRunsRequest>,
         ) -> Result<tonic::Response<super::CancelAllRunsResponse>, tonic::Status>;
+        /// GetTaskRun returns the details of a single task run.
+        async fn get_task_run(
+            &self,
+            request: tonic::Request<super::GetTaskRunRequest>,
+        ) -> Result<tonic::Response<super::GetTaskRunResponse>, tonic::Status>;
+        /// ListTaskRuns returns all task runs for a current run by ID.
+        async fn list_task_runs(
+            &self,
+            request: tonic::Request<super::ListTaskRunsRequest>,
+        ) -> Result<tonic::Response<super::ListTaskRunsResponse>, tonic::Status>;
+        /// CancelTaskRun cancels a specific task run, sending the related container a
+        /// SIGINT signal. If the force flag is used we instead send the container a
+        /// SIGKILL signal.
+        ///
+        /// Task runs that are cancelled can cause other downstream task runs to be
+        /// skipped depending on those downstream task run dependencies.
+        async fn cancel_task_run(
+            &self,
+            request: tonic::Request<super::CancelTaskRunRequest>,
+        ) -> Result<tonic::Response<super::CancelTaskRunResponse>, tonic::Status>;
+        ///Server streaming response type for the GetTaskRunLogs method.
+        type GetTaskRunLogsStream: futures_core::Stream<
+                Item = Result<super::GetTaskRunLogsResponse, tonic::Status>,
+            >
+            + Send
+            + 'static;
+        /// GetTaskRunLogs returns logs for a specific task run line by line in a
+        /// stream. The logs are returns with both STDOUT and STDERR of the associated
+        /// container combined.
+        async fn get_task_run_logs(
+            &self,
+            request: tonic::Request<super::GetTaskRunLogsRequest>,
+        ) -> Result<tonic::Response<Self::GetTaskRunLogsStream>, tonic::Status>;
+        /// DeleteTaskRunLogs removes a task run's associated log object. This is
+        /// useful for if logs mistakenly contain sensitive data.
+        async fn delete_task_run_logs(
+            &self,
+            request: tonic::Request<super::DeleteTaskRunLogsRequest>,
+        ) -> Result<tonic::Response<super::DeleteTaskRunLogsResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct GoferServer<T: Gofer> {
@@ -2085,6 +2397,205 @@ pub mod gofer_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = CancelAllRunsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/GetTaskRun" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetTaskRunSvc<T: Gofer>(pub Arc<T>);
+                    impl<T: Gofer> tonic::server::UnaryService<super::GetTaskRunRequest>
+                    for GetTaskRunSvc<T> {
+                        type Response = super::GetTaskRunResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetTaskRunRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).get_task_run(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetTaskRunSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/ListTaskRuns" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListTaskRunsSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::ListTaskRunsRequest>
+                    for ListTaskRunsSvc<T> {
+                        type Response = super::ListTaskRunsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListTaskRunsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).list_task_runs(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = ListTaskRunsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/CancelTaskRun" => {
+                    #[allow(non_camel_case_types)]
+                    struct CancelTaskRunSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::CancelTaskRunRequest>
+                    for CancelTaskRunSvc<T> {
+                        type Response = super::CancelTaskRunResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CancelTaskRunRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).cancel_task_run(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = CancelTaskRunSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/GetTaskRunLogs" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetTaskRunLogsSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::ServerStreamingService<super::GetTaskRunLogsRequest>
+                    for GetTaskRunLogsSvc<T> {
+                        type Response = super::GetTaskRunLogsResponse;
+                        type ResponseStream = T::GetTaskRunLogsStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetTaskRunLogsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).get_task_run_logs(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetTaskRunLogsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proto.Gofer/DeleteTaskRunLogs" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteTaskRunLogsSvc<T: Gofer>(pub Arc<T>);
+                    impl<
+                        T: Gofer,
+                    > tonic::server::UnaryService<super::DeleteTaskRunLogsRequest>
+                    for DeleteTaskRunLogsSvc<T> {
+                        type Response = super::DeleteTaskRunLogsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteTaskRunLogsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).delete_task_run_logs(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = DeleteTaskRunLogsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

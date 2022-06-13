@@ -8,15 +8,17 @@ impl CliHarness {
         let vars: HashMap<String, String> = variables
             .into_iter()
             .map(|var| {
-                let split_var: Vec<&str> = var.split('=').collect();
-                if split_var.len() != 2 {
-                    eprintln!(
-                        "Variable parsing error for var '{}'; must be in form my_key=my_var",
-                        var
-                    );
-                    process::exit(1);
+                let split_var = var.split_once('=');
+                match split_var {
+                    None => {
+                        eprintln!(
+                            "Variable parsing error for var '{}'; must be in form my_key=my_var",
+                            var
+                        );
+                        process::exit(1);
+                    }
+                    Some((key, value)) => (key.to_string(), value.to_string()),
                 }
-                (split_var[0].to_string(), split_var[1].to_string())
             })
             .collect();
 
