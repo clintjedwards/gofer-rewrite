@@ -9,11 +9,11 @@ fn main() {
         .out_dir("src")
         .compile(
             &[
-                "src/gofer.proto",
-                "src/gofer_transport.proto",
-                "src/gofer_message.proto",
+                "gofer.proto",
+                "gofer_transport.proto",
+                "gofer_message.proto",
             ],
-            &["src"],
+            &["./"],
         )
         .expect("failed compiling protos");
 }

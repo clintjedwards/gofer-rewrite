@@ -892,9 +892,12 @@ version = "0.1.0"
 dependencies = [
  "gofer_proto",
  "lazy-regex",
+ "prost",
  "serde",
  "serde_json",
  "thiserror",
+ "tonic",
+ "tonic-build",
 ]
 
 [[package]]

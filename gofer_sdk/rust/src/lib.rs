@@ -1,9 +1,10 @@
 pub mod config;
+pub mod sdk_proto;
+pub mod trigger;
 
 use lazy_regex::regex;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ConfigError {
     #[error("invalid {argument}: '{value}'; {description}")]
     InvalidArgument {
