@@ -1,10 +1,7 @@
 mod service;
 mod validate;
 
-use crate::frontend;
-use crate::models;
-use crate::storage;
-use crate::{conf, storage::StorageError};
+use crate::{conf, frontend, models, storage};
 use gofer_proto::{
     gofer_server::{Gofer, GoferServer},
     *,
@@ -491,14 +488,87 @@ impl Gofer for Api {
         &self,
         request: Request<GetRunRequest>,
     ) -> Result<Response<GetRunResponse>, Status> {
-        todo!()
+        let args = &request.into_inner();
+
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
+
+        if args.pipeline_id.is_empty() {
+            return Err(Status::failed_precondition(
+                "must include target pipeline id",
+            ));
+        }
+
+        if args.id == 0 {
+            return Err(Status::failed_precondition("must include target run id"));
+        }
+
+        let result = self
+            .storage
+            .get_run(&args.namespace_id, &args.pipeline_id, args.id)
+            .await;
+
+        let run = match result {
+            Ok(run) => run,
+            Err(e) => match e {
+                storage::StorageError::NotFound => {
+                    return Err(Status::not_found(format!(
+                        "run with id '{}' does not exist",
+                        &args.id
+                    )))
+                }
+                _ => return Err(Status::internal(e.to_string())),
+            },
+        };
+
+        Ok(Response::new(GetRunResponse {
+            run: Some(run.into()),
+        }))
     }
 
     async fn batch_get_runs(
         &self,
         request: Request<BatchGetRunsRequest>,
     ) -> Result<Response<BatchGetRunsResponse>, Status> {
-        todo!()
+        unimplemented!()
+        // let args = &request.into_inner();
+
+        // if args.namespace_id.is_empty() {
+        //     return Err(Status::failed_precondition("must include target namespace"));
+        // }
+
+        // if args.pipeline_id.is_empty() {
+        //     return Err(Status::failed_precondition(
+        //         "must include target pipeline id",
+        //     ));
+        // }
+
+        // if args.id == 0 {
+        //     return Err(Status::failed_precondition("must include target run id"));
+        // }
+
+        // let result = self
+        //     .storage
+        //     .get_run(&args.namespace_id, &args.pipeline_id, args.id)
+        //     .await;
+
+        // let run = match result {
+        //     Ok(run) => run,
+        //     Err(e) => match e {
+        //         storage::StorageError::NotFound => {
+        //             return Err(Status::not_found(format!(
+        //                 "run with id '{}' does not exist",
+        //                 &args.id
+        //             )))
+        //         }
+        //         _ => return Err(Status::internal(e.to_string())),
+        //     },
+        // };
+
+        // Ok(Response::new(GetRunResponse {
+        //     run: Some(run.into()),
+        // }))
     }
 
     async fn list_runs(
@@ -588,7 +658,7 @@ impl Api {
     }
 
     /// Gofer starts with a default namespace that all users have access to.
-    async fn create_default_namespace(&self) -> Result<(), StorageError> {
+    async fn create_default_namespace(&self) -> Result<(), storage::StorageError> {
         const DEFAULT_NAMESPACE_ID: &str = "default";
         const DEFAULT_NAMESPACE_NAME: &str = "Default";
         const DEFAULT_NAMESPACE_DESCRIPTION: &str =

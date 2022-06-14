@@ -181,7 +181,20 @@ async fn crud_runs() {
         },
         vec![],
     );
+    // We list runs in descend order so we need to seed intentionally such that we get the correct order.
+    test_run.started = 0;
     harness.db.create_run(&test_run).await.unwrap();
+
+    let mut test_run_2 = models::Run::new(
+        &test_namespace.id,
+        &test_pipeline.id,
+        RunTriggerInfo {
+            kind: "test_trigger".to_string(),
+            label: "my_test_trigger".to_string(),
+        },
+        vec![],
+    );
+    harness.db.create_run(&test_run_2).await.unwrap();
 
     let runs = harness
         .db
@@ -190,9 +203,11 @@ async fn crud_runs() {
         .unwrap();
 
     test_run.id = 1; // Because we auto-assign run id
+    test_run_2.id = 2;
 
-    assert_eq!(runs.len(), 1);
-    assert_eq!(runs[0], test_run);
+    assert_eq!(runs.len(), 2);
+    assert_eq!(runs[0], test_run_2);
+    assert_eq!(runs[1], test_run);
 
     let run = harness
         .db
@@ -201,6 +216,20 @@ async fn crud_runs() {
         .unwrap();
 
     assert_eq!(run, test_run);
+
+    let runs = harness
+        .db
+        .batch_get_runs(
+            &test_namespace.id,
+            &test_pipeline.id,
+            vec![test_run.id, test_run_2.id],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(runs.len(), 2);
+    assert_eq!(runs[0], test_run);
+    assert_eq!(runs[1], test_run_2);
 
     test_run.state = RunState::Complete;
 
