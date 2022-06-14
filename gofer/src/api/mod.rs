@@ -531,58 +531,79 @@ impl Gofer for Api {
         &self,
         request: Request<BatchGetRunsRequest>,
     ) -> Result<Response<BatchGetRunsResponse>, Status> {
-        unimplemented!()
-        // let args = &request.into_inner();
+        let args = &request.into_inner();
 
-        // if args.namespace_id.is_empty() {
-        //     return Err(Status::failed_precondition("must include target namespace"));
-        // }
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
 
-        // if args.pipeline_id.is_empty() {
-        //     return Err(Status::failed_precondition(
-        //         "must include target pipeline id",
-        //     ));
-        // }
+        if args.pipeline_id.is_empty() {
+            return Err(Status::failed_precondition(
+                "must include target pipeline id",
+            ));
+        }
 
-        // if args.id == 0 {
-        //     return Err(Status::failed_precondition("must include target run id"));
-        // }
+        if args.ids.is_empty() {
+            return Err(Status::failed_precondition("must include target run ids"));
+        }
 
-        // let result = self
-        //     .storage
-        //     .get_run(&args.namespace_id, &args.pipeline_id, args.id)
-        //     .await;
+        let result = self
+            .storage
+            .batch_get_runs(&args.namespace_id, &args.pipeline_id, &args.ids)
+            .await;
 
-        // let run = match result {
-        //     Ok(run) => run,
-        //     Err(e) => match e {
-        //         storage::StorageError::NotFound => {
-        //             return Err(Status::not_found(format!(
-        //                 "run with id '{}' does not exist",
-        //                 &args.id
-        //             )))
-        //         }
-        //         _ => return Err(Status::internal(e.to_string())),
-        //     },
-        // };
-
-        // Ok(Response::new(GetRunResponse {
-        //     run: Some(run.into()),
-        // }))
+        match result {
+            Ok(runs) => {
+                return Ok(Response::new(BatchGetRunsResponse {
+                    runs: runs.into_iter().map(gofer_proto::Run::from).collect(),
+                }));
+            }
+            Err(e) => match e {
+                storage::StorageError::NotFound => {
+                    return Err(Status::not_found(format!(
+                        "run with id '{:?}' does not exist",
+                        &args.ids
+                    )))
+                }
+                _ => return Err(Status::internal(e.to_string())),
+            },
+        };
     }
 
     async fn list_runs(
         &self,
         request: Request<ListRunsRequest>,
     ) -> Result<Response<ListRunsResponse>, Status> {
-        todo!()
-    }
+        let args = &request.into_inner();
 
-    async fn start_run(
-        &self,
-        request: Request<StartRunRequest>,
-    ) -> Result<Response<StartRunResponse>, Status> {
-        todo!()
+        if args.namespace_id.is_empty() {
+            return Err(Status::failed_precondition("must include target namespace"));
+        }
+
+        if args.pipeline_id.is_empty() {
+            return Err(Status::failed_precondition(
+                "must include target pipeline id",
+            ));
+        }
+
+        let result = self
+            .storage
+            .list_runs(
+                args.offset as u64,
+                args.limit as u64,
+                &args.namespace_id,
+                &args.pipeline_id,
+            )
+            .await;
+
+        match result {
+            Ok(runs) => {
+                return Ok(Response::new(ListRunsResponse {
+                    runs: runs.into_iter().map(gofer_proto::Run::from).collect(),
+                }));
+            }
+            Err(storage_err) => return Err(Status::internal(storage_err.to_string())),
+        }
     }
 
     async fn retry_run(

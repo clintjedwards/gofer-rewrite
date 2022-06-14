@@ -90,12 +90,6 @@ service Gofer {
   // controlled via the offset and limit parameters of the request.
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
 
-  // StartRun starts a new run for the given pipeline. Pipelines that are
-  // started via API are marked as such. This RPC has the ability to choose to
-  // only run a subset of a pipeline via the "only" flag. Which is not possible
-  // via a trigger.
-  rpc StartRun(StartRunRequest) returns (StartRunResponse);
-
   // RetryRun simply takes the vars and settings from a previous run and re-uses
   // those to launch a new run. Useful for if you want the exact settings from a
   // previous run.

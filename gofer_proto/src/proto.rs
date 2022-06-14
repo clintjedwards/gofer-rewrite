@@ -1178,27 +1178,6 @@ pub mod gofer_client {
             let path = http::uri::PathAndQuery::from_static("/proto.Gofer/ListRuns");
             self.inner.unary(request.into_request(), path, codec).await
         }
-        /// StartRun starts a new run for the given pipeline. Pipelines that are
-        /// started via API are marked as such. This RPC has the ability to choose to
-        /// only run a subset of a pipeline via the "only" flag. Which is not possible
-        /// via a trigger.
-        pub async fn start_run(
-            &mut self,
-            request: impl tonic::IntoRequest<super::StartRunRequest>,
-        ) -> Result<tonic::Response<super::StartRunResponse>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/proto.Gofer/StartRun");
-            self.inner.unary(request.into_request(), path, codec).await
-        }
         /// RetryRun simply takes the vars and settings from a previous run and re-uses
         /// those to launch a new run. Useful for if you want the exact settings from a
         /// previous run.
@@ -1476,14 +1455,6 @@ pub mod gofer_server {
             &self,
             request: tonic::Request<super::ListRunsRequest>,
         ) -> Result<tonic::Response<super::ListRunsResponse>, tonic::Status>;
-        /// StartRun starts a new run for the given pipeline. Pipelines that are
-        /// started via API are marked as such. This RPC has the ability to choose to
-        /// only run a subset of a pipeline via the "only" flag. Which is not possible
-        /// via a trigger.
-        async fn start_run(
-            &self,
-            request: tonic::Request<super::StartRunRequest>,
-        ) -> Result<tonic::Response<super::StartRunResponse>, tonic::Status>;
         /// RetryRun simply takes the vars and settings from a previous run and re-uses
         /// those to launch a new run. Useful for if you want the exact settings from a
         /// previous run.
@@ -2249,42 +2220,6 @@ pub mod gofer_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = ListRunsSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/proto.Gofer/StartRun" => {
-                    #[allow(non_camel_case_types)]
-                    struct StartRunSvc<T: Gofer>(pub Arc<T>);
-                    impl<T: Gofer> tonic::server::UnaryService<super::StartRunRequest>
-                    for StartRunSvc<T> {
-                        type Response = super::StartRunResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::StartRunRequest>,
-                        ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).start_run(request).await };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let inner = inner.0;
-                        let method = StartRunSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

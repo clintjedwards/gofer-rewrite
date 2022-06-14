@@ -283,7 +283,7 @@ impl Db {
         &self,
         namespace: &str,
         pipeline: &str,
-        ids: Vec<u64>,
+        ids: &Vec<u64>,
     ) -> Result<Vec<Run>, StorageError> {
         let mut conn = self
             .pool

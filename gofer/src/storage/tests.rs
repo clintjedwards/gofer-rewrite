@@ -222,7 +222,7 @@ async fn crud_runs() {
         .batch_get_runs(
             &test_namespace.id,
             &test_pipeline.id,
-            vec![test_run.id, test_run_2.id],
+            &vec![test_run.id, test_run_2.id],
         )
         .await
         .unwrap();
