@@ -1,51 +1,34 @@
 use super::super::CliHarness;
-use crate::cli::DEFAULT_NAMESPACE;
+use crate::cli::{parse_variables, DEFAULT_NAMESPACE};
 use colored::Colorize;
-use std::{collections::HashMap, process};
+use std::process;
 
 impl CliHarness {
     pub async fn pipeline_run(&self, id: &str, variables: Vec<String>) {
-        let vars: HashMap<String, String> = variables
-            .into_iter()
-            .map(|var| {
-                let split_var = var.split_once('=');
-                match split_var {
-                    None => {
-                        eprintln!(
-                            "Variable parsing error for var '{}'; must be in form my_key=my_var",
-                            var
-                        );
-                        process::exit(1);
-                    }
-                    Some((key, value)) => (key.to_string(), value.to_string()),
-                }
-            })
-            .collect();
+        let vars = parse_variables(variables);
 
-        let mut client = match self.connect().await {
-            Ok(client) => client,
-            Err(e) => {
-                eprintln!("Command failed; {}", e);
-                process::exit(1);
-            }
-        };
+        let mut client = self.connect().await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {}", e);
+            process::exit(1);
+        });
 
-        let request = tonic::Request::new(gofer_proto::RunPipelineRequest {
+        let request = tonic::Request::new(gofer_proto::StartRunRequest {
             namespace_id: self
                 .config
                 .namespace
                 .clone()
                 .unwrap_or_else(|| DEFAULT_NAMESPACE.to_string()),
-            id: id.to_string(),
+            pipeline_id: id.to_string(),
             variables: vars,
         });
-        let response = match client.run_pipeline(request).await {
-            Ok(response) => response.into_inner(),
-            Err(e) => {
-                eprintln!("Command failed; {}", e.message());
+        let response = client
+            .start_run(request)
+            .await
+            .unwrap_or_else(|e| {
+                eprintln!("Command failed; {}", e);
                 process::exit(1);
-            }
-        };
+            })
+            .into_inner();
 
         let new_run = response.run.unwrap();
 

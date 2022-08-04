@@ -5,6 +5,7 @@ use crate::{validate_identifier, ConfigError};
 
 #[must_use = "complete pipeline config with the .finish() method"]
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub struct Pipeline {
     /// Unique user defined identifier.
     pub id: String,
@@ -19,8 +20,8 @@ pub struct Pipeline {
     pub tasks: Vec<Task>,
     /// A mapping of pipeline owned triggers to their settings.
     pub triggers: Vec<PipelineTriggerConfig>,
-    /// A mapping of pipeline owned notifiers to their settings.
-    pub notifiers: Vec<PipelineNotifierConfig>,
+    /// A mapping of pipeline owned commontasks to their settings.
+    pub common_tasks: Vec<PipelineCommonTaskConfig>,
 }
 
 impl From<gofer_proto::PipelineConfig> for Pipeline {
@@ -38,7 +39,11 @@ impl From<gofer_proto::PipelineConfig> for Pipeline {
             parallelism: p.parallelism,
             tasks: p.tasks.into_iter().map(|value| value.into()).collect(),
             triggers: p.triggers.into_iter().map(|value| value.into()).collect(),
-            notifiers: p.notifiers.into_iter().map(|value| value.into()).collect(),
+            common_tasks: p
+                .common_tasks
+                .into_iter()
+                .map(|value| value.into())
+                .collect(),
         }
     }
 }
@@ -52,7 +57,11 @@ impl From<Pipeline> for gofer_proto::PipelineConfig {
             parallelism: p.parallelism,
             tasks: p.tasks.into_iter().map(|value| value.into()).collect(),
             triggers: p.triggers.into_iter().map(|value| value.into()).collect(),
-            notifiers: p.notifiers.into_iter().map(|value| value.into()).collect(),
+            common_tasks: p
+                .common_tasks
+                .into_iter()
+                .map(|value| value.into())
+                .collect(),
         }
     }
 }
@@ -66,7 +75,7 @@ impl Pipeline {
             parallelism: 0,
             tasks: Vec::new(),
             triggers: Vec::new(),
-            notifiers: Vec::new(),
+            common_tasks: Vec::new(),
         }
     }
 
@@ -81,8 +90,8 @@ impl Pipeline {
             trigger.validate()?;
         }
 
-        for notifier in &self.notifiers {
-            notifier.validate()?;
+        for common_task in &self.common_tasks {
+            common_task.validate()?;
         }
 
         Ok(())
@@ -108,8 +117,8 @@ impl Pipeline {
         self
     }
 
-    pub fn notifiers(mut self, notifiers: Vec<PipelineNotifierConfig>) -> Self {
-        self.notifiers = notifiers;
+    pub fn common_tasks(mut self, common_tasks: Vec<PipelineCommonTaskConfig>) -> Self {
+        self.common_tasks = common_tasks;
         self
     }
 
@@ -128,20 +137,21 @@ impl Pipeline {
 /// permanent state, these settings are kept here so that when triggers are restarted
 /// they can be restored with proper settings.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub struct PipelineTriggerConfig {
     /// A global unique identifier for the trigger type.
-    pub kind: String,
+    pub name: String,
     /// A user defined identifier for the trigger so that a pipeline with
-    /// multiple notifiers can be differentiated.
+    /// multiple commontasks can be differentiated.
     pub label: String,
     /// The settings for pertaining to that specific trigger.
     pub settings: HashMap<String, String>,
 }
 
 impl PipelineTriggerConfig {
-    pub fn new(kind: &str, label: &str) -> Self {
+    pub fn new(name: &str, label: &str) -> Self {
         PipelineTriggerConfig {
-            kind: kind.to_string(),
+            name: name.to_string(),
             label: label.to_string(),
             settings: HashMap::new(),
         }
@@ -161,7 +171,7 @@ impl PipelineTriggerConfig {
 impl From<gofer_proto::PipelineTriggerConfig> for PipelineTriggerConfig {
     fn from(p: gofer_proto::PipelineTriggerConfig) -> Self {
         PipelineTriggerConfig {
-            kind: p.kind,
+            name: p.name,
             label: p.label,
             settings: p.settings,
         }
@@ -171,7 +181,7 @@ impl From<gofer_proto::PipelineTriggerConfig> for PipelineTriggerConfig {
 impl From<PipelineTriggerConfig> for gofer_proto::PipelineTriggerConfig {
     fn from(p: PipelineTriggerConfig) -> Self {
         gofer_proto::PipelineTriggerConfig {
-            kind: p.kind,
+            name: p.name,
             label: p.label,
             settings: p.settings,
         }
@@ -179,20 +189,21 @@ impl From<PipelineTriggerConfig> for gofer_proto::PipelineTriggerConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PipelineNotifierConfig {
-    /// A global unique identifier for the notifier type.
-    pub kind: String,
-    /// A user defined identifier for the notifier so that a pipeline with
-    /// multiple notifiers can be differentiated.
+#[serde(rename_all = "lowercase")]
+pub struct PipelineCommonTaskConfig {
+    /// A global unique identifier for the commontask type.
+    pub name: String,
+    /// A user defined identifier for the commontask so that a pipeline with
+    /// multiple commontasks can be differentiated.
     pub label: String,
-    /// The settings for pertaining to that specific notifier.
+    /// The settings for pertaining to that specific commontask.
     pub settings: HashMap<String, String>,
 }
 
-impl PipelineNotifierConfig {
-    pub fn new(kind: &str, label: &str) -> Self {
-        PipelineNotifierConfig {
-            kind: kind.to_string(),
+impl PipelineCommonTaskConfig {
+    pub fn new(name: &str, label: &str) -> Self {
+        PipelineCommonTaskConfig {
+            name: name.to_string(),
             label: label.to_string(),
             settings: HashMap::new(),
         }
@@ -209,20 +220,20 @@ impl PipelineNotifierConfig {
     }
 }
 
-impl From<gofer_proto::PipelineNotifierConfig> for PipelineNotifierConfig {
-    fn from(p: gofer_proto::PipelineNotifierConfig) -> Self {
-        PipelineNotifierConfig {
-            kind: p.kind,
+impl From<gofer_proto::PipelineCommonTaskConfig> for PipelineCommonTaskConfig {
+    fn from(p: gofer_proto::PipelineCommonTaskConfig) -> Self {
+        PipelineCommonTaskConfig {
+            name: p.name,
             label: p.label,
             settings: p.settings,
         }
     }
 }
 
-impl From<PipelineNotifierConfig> for gofer_proto::PipelineNotifierConfig {
-    fn from(p: PipelineNotifierConfig) -> Self {
-        gofer_proto::PipelineNotifierConfig {
-            kind: p.kind,
+impl From<PipelineCommonTaskConfig> for gofer_proto::PipelineCommonTaskConfig {
+    fn from(p: PipelineCommonTaskConfig) -> Self {
+        gofer_proto::PipelineCommonTaskConfig {
+            name: p.name,
             label: p.label,
             settings: p.settings,
         }
@@ -230,6 +241,7 @@ impl From<PipelineNotifierConfig> for gofer_proto::PipelineNotifierConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RequiredParentStatus {
     Unknown,
     Any,
@@ -274,6 +286,7 @@ impl FromStr for RequiredParentStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub struct RegistryAuth {
     pub user: String,
     pub pass: String,
@@ -298,30 +311,7 @@ impl From<RegistryAuth> for gofer_proto::RegistryAuth {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Exec {
-    pub shell: String,
-    pub script: String,
-}
-
-impl From<gofer_proto::Exec> for Exec {
-    fn from(p: gofer_proto::Exec) -> Self {
-        Exec {
-            shell: p.shell,
-            script: p.script,
-        }
-    }
-}
-
-impl From<Exec> for gofer_proto::Exec {
-    fn from(p: Exec) -> Self {
-        gofer_proto::Exec {
-            shell: p.shell,
-            script: p.script,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub struct Task {
     pub id: String,
     pub description: Option<String>,
@@ -329,7 +319,8 @@ pub struct Task {
     pub registry_auth: Option<RegistryAuth>,
     pub depends_on: HashMap<String, RequiredParentStatus>,
     pub variables: HashMap<String, String>,
-    pub exec: Option<Exec>,
+    pub entrypoint: Vec<String>,
+    pub command: Vec<String>,
 }
 
 impl Task {
@@ -341,7 +332,8 @@ impl Task {
             registry_auth: None,
             depends_on: HashMap::new(),
             variables: HashMap::new(),
-            exec: None,
+            entrypoint: Vec::new(),
+            command: Vec::new(),
         }
     }
 
@@ -378,13 +370,22 @@ impl Task {
         self
     }
 
-    pub fn variables(mut self, variables: HashMap<String, String>) -> Self {
+    pub fn variables(mut self, variables: HashMap<&str, &str>) -> Self {
+        let variables: HashMap<String, String> = variables
+            .into_iter()
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect();
         self.variables.extend(variables);
         self
     }
 
-    pub fn exec(mut self, exec: Exec) -> Self {
-        self.exec = Some(exec);
+    pub fn entrypoint(mut self, entrypoint: Vec<&str>) -> Self {
+        self.entrypoint = entrypoint.into_iter().map(|s| s.to_string()).collect();
+        self
+    }
+
+    pub fn command(mut self, command: Vec<&str>) -> Self {
+        self.command = command.into_iter().map(|s| s.to_string()).collect();
         self
     }
 }
@@ -411,7 +412,8 @@ impl From<gofer_proto::TaskConfig> for Task {
                 })
                 .collect(),
             variables: p.variables,
-            exec: p.exec.map(Exec::from),
+            entrypoint: p.entrypoint,
+            command: p.command,
         }
     }
 }
@@ -434,7 +436,8 @@ impl From<Task> for gofer_proto::TaskConfig {
                 })
                 .collect(),
             variables: p.variables,
-            exec: p.exec.map(gofer_proto::Exec::from),
+            entrypoint: p.entrypoint,
+            command: p.command,
         }
     }
 }

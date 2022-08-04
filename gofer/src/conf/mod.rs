@@ -1,34 +1,30 @@
 pub mod api;
 pub mod cli;
 use config::{Config, FileFormat};
-use rust_embed::RustEmbed;
 #[allow(deprecated)]
 use std::env::home_dir;
-use std::{borrow::Cow, error::Error};
+use std::error::Error;
 
-#[derive(RustEmbed)]
-#[folder = "src/conf/"]
-#[include = "*.toml"]
-struct EmbeddedConfigFS;
+const DEFAULT_API_CONFIG: &str = include_str!("./default_api_config.toml");
+const DEFAULT_CLI_CONFIG: &str = include_str!("./default_cli_config.toml");
 
-/// The configuration type.
+const LOCALHOST_CA: &str = include_str!("./localhost.ca");
+const LOCALHOST_CRT: &str = include_str!("./localhost.crt");
+const LOCALHOST_KEY: &str = include_str!("./localhost.key");
+
+/// The configuration type. We box the API enum since it takes up
+/// significantly more space than the CLI enum.
 pub enum Kind {
-    Api(api::Config),
+    Api(Box<api::Config>),
     Cli(cli::Config),
 }
 
 impl Kind {
     /// returns an embedded default configuration file in bytes.
-    fn default_config(&self) -> Cow<'static, [u8]> {
+    fn default_config(&self) -> &str {
         match self {
-            Kind::Api(_) => {
-                let config_file = EmbeddedConfigFS::get("default_api_config.toml").unwrap();
-                config_file.data
-            }
-            Kind::Cli(_) => {
-                let config_file = EmbeddedConfigFS::get("default_cli_config.toml").unwrap();
-                config_file.data
-            }
+            Kind::Api(_) => DEFAULT_API_CONFIG,
+            Kind::Cli(_) => DEFAULT_CLI_CONFIG,
         }
     }
 
@@ -53,7 +49,7 @@ impl Kind {
     ///
     /// `new_api_config::parse("/home/myfile.toml")`
     pub fn new_api_config() -> Self {
-        Self::Api(api::Config::default())
+        Self::Api(Box::new(api::Config::default()))
     }
 
     /// Instantiates an empty cli config. Use `parse` to populate.
@@ -63,19 +59,17 @@ impl Kind {
         Self::Cli(cli::Config::default())
     }
 
-    /// returns a correctly deserialized config struct from the configuration files and environment passed to it.
+    /// Returns a correctly deserialized config struct from the configuration files and environment passed to it.
     ///
     /// The order of the configuration files read in is by order passed in. So [config_1.yml, config_2.yml] would cause
     /// any conflicting keys in both configs to inherit config_2's value.
     pub fn parse(&self, path_override: &Option<String>) -> Result<Kind, Box<dyn Error>> {
         let mut config_src_builder = Config::builder();
 
-        // First parse embedded config defaults.
-        let default_config_raw = self.default_config();
-        let default_config = std::str::from_utf8(&default_config_raw)?;
-
-        config_src_builder =
-            config_src_builder.add_source(config::File::from_str(default_config, FileFormat::Toml));
+        config_src_builder = config_src_builder.add_source(config::File::from_str(
+            self.default_config(),
+            FileFormat::Toml,
+        ));
 
         // Then parse user given paths.
         if path_override.is_none() {
@@ -92,30 +86,22 @@ impl Kind {
         // Then attempt to deserialize based on which config needed.
         match self {
             Kind::Api(_) => {
-                // Lastly env vars always override everything.
-                let config_src = config_src_builder
-                    .add_source(
-                        config::Environment::with_prefix("GOFER")
-                            .prefix_separator("_")
-                            .separator("__")
-                            .ignore_empty(true),
-                    )
-                    .build()?;
-
+                let config_src = config_src_builder.build()?;
                 let parsed_config = config_src.try_deserialize::<api::Config>()?;
-                Ok(Kind::Api(parsed_config))
+
+                // Lastly env vars always override everything.
+                let mut parsed_config = econf::load(parsed_config, "GOFER");
+                parsed_config.inject_localhost_dev_certs();
+
+                Ok(Kind::Api(Box::new(parsed_config)))
             }
             Kind::Cli(_) => {
-                // Lastly env vars always override everything.
-                let config_src = config_src_builder
-                    .add_source(
-                        config::Environment::with_prefix("GOFER_CLI")
-                            .separator("_")
-                            .ignore_empty(true),
-                    )
-                    .build()?;
-
+                let config_src = config_src_builder.build()?;
                 let parsed_config = config_src.try_deserialize::<cli::Config>()?;
+
+                // Lastly env vars always override everything.
+                let mut parsed_config = econf::load(parsed_config, "GOFER_CLI");
+                parsed_config.inject_localhost_dev_certs();
                 Ok(Kind::Cli(parsed_config))
             }
         }

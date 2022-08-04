@@ -10,8 +10,11 @@ use std::process;
 /// Also allows easy access to the red error and green checkmark finish prefixes.
 pub trait Spinner {
     fn new() -> Self;
+    fn println_success(&self, message: &str);
+    fn println_error(&self, message: &str);
     fn finish_and_error(&self, message: &str) -> !;
     fn finish_and_success(&self, message: &str) -> !;
+    fn abandon_and_success(&self, message: &str);
 }
 
 impl Spinner for ProgressBar {
@@ -25,6 +28,14 @@ impl Spinner for ProgressBar {
         spinner
     }
 
+    fn println_success(&self, message: &str) {
+        self.println(format!("{} {}", "✓".green(), message));
+    }
+
+    fn println_error(&self, message: &str) {
+        self.println(format!("{} {}", "x".red(), message));
+    }
+
     fn finish_and_error(&self, message: &str) -> ! {
         self.finish_and_clear();
         println!("{} {}", "x".red(), message);
@@ -35,5 +46,9 @@ impl Spinner for ProgressBar {
         self.finish_and_clear();
         println!("{} {}", "✓".green(), message);
         process::exit(0);
+    }
+
+    fn abandon_and_success(&self, message: &str) {
+        self.abandon_with_message(format!("{} {}", "✓".green(), message))
     }
 }

@@ -1,29 +1,42 @@
-mod service;
+mod common_tasks;
+mod event_handlers;
+mod fmt;
+mod gofer_impl;
+mod namespaces;
+mod pipelines;
+mod runs;
+mod system;
+mod task_runs;
+mod triggers;
 mod validate;
 
-use crate::{conf, frontend, models, storage};
-use gofer_proto::{
-    gofer_server::{Gofer, GoferServer},
-    *,
-};
-
-use futures::Stream;
+use crate::{conf, events, frontend, object_store, scheduler, secret_store, storage};
+use anyhow::anyhow;
+use axum_server::Handle;
+use dashmap::DashMap;
+use gofer_models::{common_task, event, namespace, trigger};
+use gofer_proto::gofer_server::GoferServer;
+use http::header::CONTENT_TYPE;
 use slog_scope::info;
-use std::pin::Pin;
 use std::time::{SystemTime, UNIX_EPOCH};
-use thiserror::Error;
-use tonic::{Request, Response, Status};
+use std::{ops::Deref, str::FromStr, sync::Arc};
+use tokio_util::sync::CancellationToken;
+use tonic::transport::{Certificate, ClientTlsConfig, Uri};
+use tower::{steer::Steer, ServiceExt};
 
 const BUILD_SEMVER: &str = env!("BUILD_SEMVER");
 const BUILD_COMMIT: &str = env!("BUILD_COMMIT");
 
-#[derive(Error, Debug)]
-pub enum ApiError {
-    #[error("could not successfully validate arguments; {0}")]
-    InvalidArguments(String),
-}
+/// GOFER_EOF is a special string marker we include at the end of log files.
+/// It denotes that no further logs will be written. This is to provide the functionality for downstream
+/// applications to follow log files and not also have to monitor the container for state to know when
+/// logs will no longer be printed.
+///
+/// If this did not exist, downstream applications would have no idea the difference between a file
+/// that was still pending log_lines and a file that was at it's final resting state.
+const GOFER_EOF: &str = "GOFER_EOF";
 
-fn epoch() -> u64 {
+pub fn epoch() -> u64 {
     let current_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -32,650 +45,138 @@ fn epoch() -> u64 {
     u64::try_from(current_epoch).unwrap()
 }
 
-#[derive(Clone)]
-pub struct Api {
-    conf: conf::api::Config,
-    storage: storage::Db,
+/// Returns a valid TLS configuration for GRPC connections. Most of this is only required to make
+/// self-signed cert usage easier. Rustls wont allow IP addresses in the url field and wont allow
+/// you to skip client-side issuer verification. So if the user enters 127.0.0.1 we replace
+/// it with the domain "localhost" and if the user supplies us with a root cert that trusts the
+/// localhost certs we add it to the root certificate trust store.
+fn get_tls_client_config(url: &str, ca_cert: Option<String>) -> anyhow::Result<ClientTlsConfig> {
+    let uri = Uri::from_str(url)?;
+    let mut domain_name = uri
+        .host()
+        .ok_or_else(|| anyhow!("could not get domain name from uri: {:?}", uri))?;
+    if domain_name.eq("127.0.0.1") {
+        domain_name = "localhost"
+    }
+
+    let mut tls_config = ClientTlsConfig::new().domain_name(domain_name);
+
+    if let Some(ca_cert) = ca_cert {
+        tls_config = tls_config.ca_certificate(Certificate::from_pem(ca_cert));
+    }
+
+    Ok(tls_config)
 }
 
-#[tonic::async_trait]
-impl Gofer for Api {
-    async fn get_system_info(
-        &self,
-        _: Request<GetSystemInfoRequest>,
-    ) -> Result<Response<GetSystemInfoResponse>, Status> {
-        Ok(Response::new(GetSystemInfoResponse {
-            commit: BUILD_COMMIT.to_string(),
-            dev_mode_enabled: self.conf.general.dev_mode,
-            semver: BUILD_SEMVER.to_string(),
-        }))
+#[derive(Debug)]
+pub struct ApiWrapper(Arc<Api>);
+
+impl Deref for ApiWrapper {
+    type Target = Arc<Api>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
+}
 
-    async fn list_namespaces(
-        &self,
-        request: Request<ListNamespacesRequest>,
-    ) -> Result<Response<ListNamespacesResponse>, Status> {
-        let args = &request.into_inner();
+#[derive(Debug)]
+pub struct Api {
+    /// Used to cancel downstream threads on shutdown.
+    shutdown: CancellationToken,
 
-        let result = self.storage.list_namespaces(args.offset, args.limit).await;
+    /// Various configurations needed by the api
+    conf: conf::api::Config,
 
-        match result {
-            Ok(namespaces_raw) => {
-                let namespaces = namespaces_raw
-                    .into_iter()
-                    .map(gofer_proto::Namespace::from)
-                    .collect();
-                return Ok(Response::new(ListNamespacesResponse { namespaces }));
-            }
-            Err(storage_err) => return Err(Status::internal(storage_err.to_string())),
-        }
-    }
+    /// The main backend storage implementation. Gofer stores most of its critical state information here.
+    storage: storage::Db,
 
-    async fn create_namespace(
-        &self,
-        request: Request<CreateNamespaceRequest>,
-    ) -> Result<Response<CreateNamespaceResponse>, Status> {
-        let args = &request.into_inner();
+    /// The mechanism in which Gofer uses to run individual containers.
+    scheduler: Arc<dyn scheduler::Scheduler + Sync + Send>,
 
-        if let Err(e) = validate::identifier(&args.id) {
-            return Err(Status::failed_precondition(e.to_string()));
-        }
+    /// The mechanism in which Gofer stores pipeline and run level objects. The implementation is meant to
+    /// act as a basic object store.
+    object_store: Arc<dyn object_store::Store + Sync + Send>,
 
-        let new_namespace = models::Namespace::new(&args.id, &args.name, &args.description);
+    /// The mechanism in which Gofer stores pipeline secrets. It allows users to store secret that can be
+    /// interpreted in their pipeline files.
+    secret_store: Arc<dyn secret_store::Store + Sync + Send>,
 
-        let result = self.storage.create_namespace(&new_namespace).await;
-        match result {
-            Ok(_) => (),
-            Err(e) => match e {
-                storage::StorageError::Exists => {
-                    return Err(Status::already_exists(format!(
-                        "namespace with id '{}' already exists",
-                        new_namespace.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
+    /// Used throughout the whole application in order to allow functions to wait on state changes in Gofer.
+    event_bus: Arc<events::EventBus>,
 
-        info!("Created new namespace"; "namespace" => format!("{:?}", new_namespace));
-        Ok(Response::new(CreateNamespaceResponse {
-            namespace: Some(new_namespace.into()),
-        }))
-    }
+    /// An in-memory map of currently registered and started triggers.
+    /// This is necessary due to triggers being based on containers and their state needing to be constantly
+    /// updated and maintained.
+    triggers: DashMap<String, trigger::Trigger>,
 
-    async fn get_namespace(
-        &self,
-        request: Request<GetNamespaceRequest>,
-    ) -> Result<Response<GetNamespaceResponse>, Status> {
-        let args = &request.into_inner();
-
-        let result = self.storage.get_namespace(&args.id).await;
-        let namespace = match result {
-            Ok(namespace) => namespace,
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "namespace with id '{}' does not exist",
-                        &args.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        Ok(Response::new(GetNamespaceResponse {
-            namespace: Some(namespace.into()),
-        }))
-    }
-
-    async fn update_namespace(
-        &self,
-        request: Request<UpdateNamespaceRequest>,
-    ) -> Result<Response<UpdateNamespaceResponse>, Status> {
-        let args = &request.into_inner();
-
-        let result = self
-            .storage
-            .update_namespace(&models::Namespace {
-                id: args.id.clone(),
-                name: args.name.clone(),
-                description: args.description.clone(),
-                created: 0,
-                modified: epoch(),
-            })
-            .await;
-
-        match result {
-            Ok(_) => (),
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "namespace with id '{}' does not exist",
-                        &args.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        Ok(Response::new(UpdateNamespaceResponse {}))
-    }
-
-    async fn delete_namespace(
-        &self,
-        request: Request<DeleteNamespaceRequest>,
-    ) -> Result<Response<DeleteNamespaceResponse>, Status> {
-        let args = &request.into_inner();
-
-        let result = self.storage.delete_namespace(&args.id).await;
-        match result {
-            Ok(_) => (),
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "namespace with id '{}' does not exist",
-                        &args.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        info!("Deleted namespace"; "id" => &args.id);
-        Ok(Response::new(DeleteNamespaceResponse {}))
-    }
-
-    async fn list_pipelines(
-        &self,
-        request: Request<ListPipelinesRequest>,
-    ) -> Result<Response<ListPipelinesResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        let result = self
-            .storage
-            .list_pipelines(args.offset as u64, args.limit as u64, &args.namespace_id)
-            .await;
-
-        match result {
-            Ok(pipelines_raw) => {
-                let pipelines = pipelines_raw
-                    .into_iter()
-                    .map(gofer_proto::Pipeline::from)
-                    .collect();
-                return Ok(Response::new(ListPipelinesResponse { pipelines }));
-            }
-            Err(storage_err) => return Err(Status::internal(storage_err.to_string())),
-        }
-    }
-
-    async fn create_pipeline(
-        &self,
-        request: Request<CreatePipelineRequest>,
-    ) -> Result<Response<CreatePipelineResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        let pipeline_config = match &args.pipeline_config {
-            Some(config) => config,
-            None => {
-                return Err(Status::failed_precondition(
-                    "must include valid pipeline config",
-                ));
-            }
-        };
-
-        let new_pipeline =
-            models::Pipeline::new(&args.namespace_id, pipeline_config.to_owned().into());
-
-        let result = self.storage.create_pipeline(&new_pipeline).await;
-        match result {
-            Ok(_) => (),
-            Err(e) => match e {
-                storage::StorageError::Exists => {
-                    return Err(Status::already_exists(format!(
-                        "pipeline with id '{}' already exists",
-                        new_pipeline.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        info!("Created new pipeline"; "pipeline" => format!("{:?}", new_pipeline));
-        Ok(Response::new(CreatePipelineResponse {
-            pipeline: Some(new_pipeline.into()),
-        }))
-    }
-
-    async fn get_pipeline(
-        &self,
-        request: Request<GetPipelineRequest>,
-    ) -> Result<Response<GetPipelineResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        if args.id.is_empty() {
-            return Err(Status::failed_precondition(
-                "must include target pipeline id",
-            ));
-        }
-
-        let result = self
-            .storage
-            .get_pipeline(&args.namespace_id, &args.id)
-            .await;
-        let pipeline = match result {
-            Ok(pipeline) => pipeline,
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "pipeline with id '{}' does not exist",
-                        &args.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        Ok(Response::new(GetPipelineResponse {
-            pipeline: Some(pipeline.into()),
-        }))
-    }
-
-    async fn run_pipeline(
-        &self,
-        request: Request<RunPipelineRequest>,
-    ) -> Result<Response<RunPipelineResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        if args.id.is_empty() {
-            return Err(Status::failed_precondition(
-                "must include target pipeline id",
-            ));
-        }
-
-        let result = self
-            .storage
-            .get_pipeline(&args.namespace_id, &args.id)
-            .await;
-
-        if let Err(e) = result {
-            match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "pipeline with id '{}' does not exist",
-                        &args.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            }
-        }
-
-        unimplemented!();
-
-        //Ok(Response::new(RunPipelineResponse {}))
-    }
-
-    async fn enable_pipeline(
-        &self,
-        request: Request<EnablePipelineRequest>,
-    ) -> Result<Response<EnablePipelineResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        if args.id.is_empty() {
-            return Err(Status::failed_precondition(
-                "must include target pipeline id",
-            ));
-        }
-
-        let result = self
-            .storage
-            .update_pipeline_state(&args.namespace_id, &args.id, models::PipelineState::Active)
-            .await;
-        match result {
-            Ok(pipeline) => pipeline,
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "pipeline with id '{}' does not exist",
-                        &args.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        Ok(Response::new(EnablePipelineResponse {}))
-    }
-
-    async fn disable_pipeline(
-        &self,
-        request: Request<DisablePipelineRequest>,
-    ) -> Result<Response<DisablePipelineResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        if args.id.is_empty() {
-            return Err(Status::failed_precondition(
-                "must include target pipeline id",
-            ));
-        }
-
-        let result = self
-            .storage
-            .update_pipeline_state(
-                &args.namespace_id,
-                &args.id,
-                models::PipelineState::Disabled,
-            )
-            .await;
-        match result {
-            Ok(pipeline) => pipeline,
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "pipeline with id '{}' does not exist",
-                        &args.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        Ok(Response::new(DisablePipelineResponse {}))
-    }
-
-    async fn update_pipeline(
-        &self,
-        request: Request<UpdatePipelineRequest>,
-    ) -> Result<Response<UpdatePipelineResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        let pipeline_config = match &args.pipeline_config {
-            Some(config) => config,
-            None => {
-                return Err(Status::failed_precondition(
-                    "must include valid pipeline config",
-                ));
-            }
-        };
-
-        let new_pipeline =
-            models::Pipeline::new(&args.namespace_id, pipeline_config.to_owned().into());
-
-        let result = self.storage.update_pipeline(&new_pipeline).await;
-        match result {
-            Ok(_) => (),
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "pipeline with id '{}' does not exist",
-                        &new_pipeline.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        Ok(Response::new(UpdatePipelineResponse {
-            pipeline: Some(new_pipeline.into()),
-        }))
-    }
-
-    async fn delete_pipeline(
-        &self,
-        request: Request<DeletePipelineRequest>,
-    ) -> Result<Response<DeletePipelineResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        if args.id.is_empty() {
-            return Err(Status::failed_precondition(
-                "must include target pipeline id",
-            ));
-        }
-
-        let result = self
-            .storage
-            .delete_pipeline(&args.namespace_id, &args.id)
-            .await;
-        match result {
-            Ok(_) => (),
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "pipeline with id '{}' does not exist",
-                        &args.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        info!("Deleted pipeline"; "id" => &args.id);
-        Ok(Response::new(DeletePipelineResponse {}))
-    }
-
-    async fn get_run(
-        &self,
-        request: Request<GetRunRequest>,
-    ) -> Result<Response<GetRunResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        if args.pipeline_id.is_empty() {
-            return Err(Status::failed_precondition(
-                "must include target pipeline id",
-            ));
-        }
-
-        if args.id == 0 {
-            return Err(Status::failed_precondition("must include target run id"));
-        }
-
-        let result = self
-            .storage
-            .get_run(&args.namespace_id, &args.pipeline_id, args.id)
-            .await;
-
-        let run = match result {
-            Ok(run) => run,
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "run with id '{}' does not exist",
-                        &args.id
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-
-        Ok(Response::new(GetRunResponse {
-            run: Some(run.into()),
-        }))
-    }
-
-    async fn batch_get_runs(
-        &self,
-        request: Request<BatchGetRunsRequest>,
-    ) -> Result<Response<BatchGetRunsResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        if args.pipeline_id.is_empty() {
-            return Err(Status::failed_precondition(
-                "must include target pipeline id",
-            ));
-        }
-
-        if args.ids.is_empty() {
-            return Err(Status::failed_precondition("must include target run ids"));
-        }
-
-        let result = self
-            .storage
-            .batch_get_runs(&args.namespace_id, &args.pipeline_id, &args.ids)
-            .await;
-
-        match result {
-            Ok(runs) => {
-                return Ok(Response::new(BatchGetRunsResponse {
-                    runs: runs.into_iter().map(gofer_proto::Run::from).collect(),
-                }));
-            }
-            Err(e) => match e {
-                storage::StorageError::NotFound => {
-                    return Err(Status::not_found(format!(
-                        "run with id '{:?}' does not exist",
-                        &args.ids
-                    )))
-                }
-                _ => return Err(Status::internal(e.to_string())),
-            },
-        };
-    }
-
-    async fn list_runs(
-        &self,
-        request: Request<ListRunsRequest>,
-    ) -> Result<Response<ListRunsResponse>, Status> {
-        let args = &request.into_inner();
-
-        if args.namespace_id.is_empty() {
-            return Err(Status::failed_precondition("must include target namespace"));
-        }
-
-        if args.pipeline_id.is_empty() {
-            return Err(Status::failed_precondition(
-                "must include target pipeline id",
-            ));
-        }
-
-        let result = self
-            .storage
-            .list_runs(
-                args.offset as u64,
-                args.limit as u64,
-                &args.namespace_id,
-                &args.pipeline_id,
-            )
-            .await;
-
-        match result {
-            Ok(runs) => {
-                return Ok(Response::new(ListRunsResponse {
-                    runs: runs.into_iter().map(gofer_proto::Run::from).collect(),
-                }));
-            }
-            Err(storage_err) => return Err(Status::internal(storage_err.to_string())),
-        }
-    }
-
-    async fn retry_run(
-        &self,
-        request: Request<RetryRunRequest>,
-    ) -> Result<Response<RetryRunResponse>, Status> {
-        todo!()
-    }
-
-    async fn cancel_run(
-        &self,
-        request: Request<CancelRunRequest>,
-    ) -> Result<Response<CancelRunResponse>, Status> {
-        todo!()
-    }
-
-    async fn cancel_all_runs(
-        &self,
-        request: Request<CancelAllRunsRequest>,
-    ) -> Result<Response<CancelAllRunsResponse>, Status> {
-        todo!()
-    }
-
-    async fn get_task_run(
-        &self,
-        request: Request<GetTaskRunRequest>,
-    ) -> Result<Response<GetTaskRunResponse>, Status> {
-        todo!()
-    }
-
-    async fn list_task_runs(
-        &self,
-        request: Request<ListTaskRunsRequest>,
-    ) -> Result<Response<ListTaskRunsResponse>, Status> {
-        todo!()
-    }
-
-    async fn cancel_task_run(
-        &self,
-        request: Request<CancelTaskRunRequest>,
-    ) -> Result<Response<CancelTaskRunResponse>, Status> {
-        todo!()
-    }
-
-    type GetTaskRunLogsStream =
-        Pin<Box<dyn Stream<Item = Result<GetTaskRunLogsResponse, Status>> + Send>>;
-
-    async fn get_task_run_logs(
-        &self,
-        request: Request<GetTaskRunLogsRequest>,
-    ) -> Result<Response<Self::GetTaskRunLogsStream>, Status> {
-        todo!()
-    }
-
-    async fn delete_task_run_logs(
-        &self,
-        request: Request<DeleteTaskRunLogsRequest>,
-    ) -> Result<Response<DeleteTaskRunLogsResponse>, Status> {
-        todo!()
-    }
+    /// An in-memory map of currently registered common_tasks. These common_tasks are registered on startup
+    /// and launched as requested in the user's pipeline run. Gofer refers to this cache as a way
+    /// to quickly look up which container is needed to be launched.
+    common_tasks: DashMap<String, common_task::CommonTask>,
 }
 
 impl Api {
-    /// Create new API object. Subsequently you can run start_service to start the server.
-    pub async fn new(conf: conf::api::Config) -> Self {
+    /// Create a new instance of API with all services started.
+    pub async fn start(conf: conf::api::Config) {
+        let shutdown = CancellationToken::new();
         let storage = storage::Db::new(&conf.server.storage_path).await.unwrap();
+        let scheduler = scheduler::init_scheduler(&conf.scheduler).await.unwrap();
+        let object_store = object_store::init_object_store(&conf.object_store)
+            .await
+            .unwrap();
+        let secret_store = secret_store::init_secret_store(&conf.secret_store)
+            .await
+            .unwrap();
+        let event_bus = Arc::new(events::EventBus::new(
+            storage.clone(),
+            conf.general.event_retention,
+            conf.general.event_prune_interval,
+        ));
 
-        let api = Api { conf, storage };
+        let api = Api {
+            shutdown,
+            conf,
+            storage,
+            scheduler,
+            object_store,
+            secret_store,
+            event_bus,
+            triggers: DashMap::new(),
+            common_tasks: DashMap::new(),
+        };
+
+        let api = Arc::new(api);
 
         api.create_default_namespace().await.unwrap();
+        api.clone().start_triggers().await.unwrap();
 
-        api
+        // Launch a thread that waits for ctrl-c and runs cleanup.
+        let server_handle = axum_server::Handle::new();
+        let server_cancel_handle = server_handle.clone();
+        let handle_api = api.clone();
+        tokio::spawn(async move { handle_api.handle_shutdown(server_cancel_handle).await });
+
+        api.start_service(server_handle).await;
+    }
+
+    pub async fn handle_shutdown(&self, server_handle: Handle) {
+        match tokio::signal::ctrl_c().await {
+            Ok(()) => {}
+            Err(err) => {
+                eprintln!("Unable to listen for shutdown signal: {}", err);
+            }
+        }
+
+        // Send graceful stop to all triggers.
+        self.stop_all_triggers().await;
+
+        // Send cancel to all downstream threads.
+        self.shutdown.cancel();
+
+        // Shutdown the GRPC/HTTP service.
+        server_handle.graceful_shutdown(Some(tokio::time::Duration::from_secs(
+            self.conf.server.shutdown_timeout,
+        )));
     }
 
     /// Gofer starts with a default namespace that all users have access to.
@@ -685,37 +186,77 @@ impl Api {
         const DEFAULT_NAMESPACE_DESCRIPTION: &str =
             "The default namespace when no other namespace is specified.";
 
-        let default_namespace = models::Namespace::new(
+        let default_namespace = namespace::Namespace::new(
             DEFAULT_NAMESPACE_ID,
             DEFAULT_NAMESPACE_NAME,
             DEFAULT_NAMESPACE_DESCRIPTION,
         );
 
-        match self.storage.create_namespace(&default_namespace).await {
-            Ok(_) => Ok(()),
-            Err(e) => match e {
-                storage::StorageError::Exists => Ok(()),
-                _ => Err(e),
-            },
-        }
+        let mut conn = self.storage.conn().await?;
+
+        if let Err(e) = storage::namespaces::insert(&mut conn, &default_namespace).await {
+            match e {
+                storage::StorageError::Exists => return Ok(()),
+                _ => return Err(e),
+            }
+        };
+
+        self.event_bus
+            .publish(event::Kind::CreatedNamespace {
+                namespace_id: DEFAULT_NAMESPACE_ID.to_string(),
+            })
+            .await;
+
+        Ok(())
     }
 
-    /// Start a TLS enabled, multiplexed, grpc/http server.
-    pub async fn start_service(&self) {
-        let rest =
-            axum::Router::new().route("/*path", axum::routing::any(frontend::frontend_handler));
-        let grpc = GoferServer::new(self.clone());
+    /// Start a TLS enabled, multiplexed, grpc/http server. Blocks until receives a ctrl-c.
+    async fn start_service(self: Arc<Self>, handle: Handle) {
+        let config = self.conf.clone();
+        let cert = config.server.tls_cert.clone().into_bytes();
+        let key = config.server.tls_key.clone().into_bytes();
 
-        let service = service::MultiplexService { rest, grpc };
+        let http = axum::Router::new()
+            .route("/*path", axum::routing::any(frontend::frontend_handler))
+            .map_err(tower::BoxError::from)
+            .boxed_clone();
 
-        let cert = self.conf.server.tls_cert.clone().into_bytes();
-        let key = self.conf.server.tls_key.clone().into_bytes();
+        let grpc = tonic::transport::Server::builder()
+            .add_service(GoferServer::new(ApiWrapper(self)))
+            .into_service()
+            .map_response(|r| r.map(axum::body::boxed))
+            .boxed_clone();
 
-        if self.conf.general.dev_mode {
-            service::start_server(service, &self.conf.server.url).await;
-            return;
-        }
+        let http_grpc = Steer::new(
+            vec![http, grpc],
+            |req: &'_ http::Request<hyper::Body>, _svcs: &'_ [_]| {
+                if req.headers().get(CONTENT_TYPE).map(|v| v.as_bytes())
+                    != Some(b"application/grpc")
+                {
+                    0
+                } else {
+                    1
+                }
+            },
+        );
 
-        service::start_tls_server(service, &self.conf.server.url, cert, key).await;
+        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem(cert, key)
+            .await
+            .expect("could not configure TLS");
+
+        let tcp_settings = axum_server::AddrIncomingConfig::new()
+            .tcp_keepalive(Some(std::time::Duration::from_secs(15)))
+            .build();
+
+        info!("Started multiplexed, TLS enabled, grpc/http service"; "url" => config.server.url.clone());
+
+        axum_server::bind_rustls(config.server.url.parse().unwrap(), tls_config)
+            .handle(handle)
+            .addr_incoming_config(tcp_settings)
+            .serve(tower::make::Shared::new(http_grpc))
+            .await
+            .expect("server exited unexpectedly");
+
+        info!("Gracefully shutdown grpc/http service");
     }
 }

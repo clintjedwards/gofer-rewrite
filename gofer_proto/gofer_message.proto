@@ -28,15 +28,21 @@ message Namespace {
   uint64 modified = 5;
 }
 
-enum VariableOwner {
-  UNKNOWN = 0;
-  USER = 1;
-  SYSTEM = 2;
-}
 message Variable {
+  enum VariableSensitivity {
+    VARIABLE_SENSITIVITY_UNKNOWN = 0;
+    PUBLIC = 1;
+    PRIVATE = 2;
+  }
+  enum VariableOwner {
+    VARIABLE_OWNER_UNKNOWN = 0;
+    USER = 1;
+    SYSTEM = 2;
+  }
   string key = 1;
   string value = 2;
   VariableOwner owner = 3;
+  VariableSensitivity sensitivity = 4;
 }
 
 message Pipeline {
@@ -44,21 +50,19 @@ message Pipeline {
   string id = 2;
   string name = 3;
   string description = 4;
-  uint64 last_run_id = 5;
-  uint64 last_run_time = 6;
-  uint64 parallelism = 7;
-  uint64 created = 8;
-  uint64 modified = 9;
+  uint64 parallelism = 5;
+  uint64 created = 6;
+  uint64 modified = 7;
   enum PipelineState {
     PIPELINE_STATE_UNKNOWN = 0;
     ACTIVE = 1;
     DISABLED = 2;
   }
-  PipelineState state = 10;
-  map<string, Task> tasks = 11;
-  map<string, PipelineTriggerSettings> triggers = 12;
-  map<string, PipelineNotifierSettings> notifiers = 13;
-  repeated string store_keys = 14;
+  PipelineState state = 8;
+  map<string, Task> tasks = 9;
+  map<string, PipelineTriggerSettings> triggers = 10;
+  map<string, PipelineCommonTaskSettings> common_tasks = 11;
+  repeated string store_keys = 12;
 }
 
 message PipelineConfig {
@@ -68,7 +72,7 @@ message PipelineConfig {
   uint64 parallelism = 4;
   repeated TaskConfig tasks = 5;
   repeated PipelineTriggerConfig triggers = 6;
-  repeated PipelineNotifierConfig notifiers = 7;
+  repeated PipelineCommonTaskConfig common_tasks = 7;
 }
 
 message Run {
@@ -91,28 +95,28 @@ message Run {
     CANCELLED = 3;
   }
   RunStatus status = 7;
-  RunFailureInfo failure_info = 8;
+  RunStatusReason status_reason = 8;
   repeated string task_runs = 9;
   RunTriggerInfo trigger = 10;
   repeated Variable variables = 11;
   RunStoreInfo store_info = 12;
 }
 
-message RunFailureInfo {
-  enum RunFailureReason {
-    RUN_FAILURE_REASON_UNKNOWN = 0;
+message RunStatusReason {
+  enum RunStatusReason {
+    RUN_STATUS_REASON_UNKNOWN = 0;
     ABNORMAL_EXIT = 1;
     SCHEDULER_ERROR = 2;
     FAILED_PRECONDITION = 3;
     USER_CANCELLED = 4;
     ADMIN_CANCELLED = 5;
   }
-  RunFailureReason reason = 1;
+  RunStatusReason reason = 1;
   string description = 2;
 }
 
 message RunTriggerInfo {
-  string kind = 1;
+  string name = 1;
   string label = 2;
 }
 
@@ -125,12 +129,6 @@ message RegistryAuth {
   string user = 1;
   string pass = 2;
 }
-
-message Exec {
-  string shell = 1;
-  string script = 2;
-}
-
 message Task {
   string id = 1;
   string description = 2;
@@ -144,18 +142,19 @@ message Task {
   }
   map<string, RequiredParentStatus> depends_on = 5;
   repeated Variable variables = 6;
-  Exec exec = 7;
+  repeated string entrypoint = 7;
+  repeated string command = 8;
 }
 
 message PipelineTriggerSettings {
-  string kind = 1;
+  string name = 1;
   string label = 2;
   map<string, string> settings = 3;
   string error = 4;
 }
 
-message PipelineNotifierSettings {
-  string kind = 1;
+message PipelineCommonTaskSettings {
+  string name = 1;
   string label = 2;
   map<string, string> settings = 3;
   string error = 4;
@@ -174,23 +173,24 @@ message TaskConfig {
   }
   map<string, RequiredParentStatus> depends_on = 5;
   map<string, string> variables = 6;
-  Exec exec = 7;
+  repeated string entrypoint = 7;
+  repeated string command = 8;
 }
 
 message PipelineTriggerConfig {
-  string kind = 1;
+  string name = 1;
   string label = 2;
   map<string, string> settings = 3;
 }
 
-message PipelineNotifierConfig {
-  string kind = 1;
+message PipelineCommonTaskConfig {
+  string name = 1;
   string label = 2;
   map<string, string> settings = 3;
 }
 
-message TaskRunFailure {
-  enum Kind {
+message TaskRunStatusReason {
+  enum Reason {
     UNKNOWN = 0;
     ABNORMAL_EXIT = 1;
     SCHEDULER_ERROR = 2;
@@ -198,7 +198,7 @@ message TaskRunFailure {
     CANCELLED = 4;
     ORPHANED = 5;
   }
-  Kind kind = 1;
+  Reason reason = 1;
   string description = 2;
 }
 
@@ -206,7 +206,7 @@ message TaskRun {
   uint64 created = 1;
   uint64 ended = 2;
   uint64 exit_code = 3;
-  TaskRunFailure failure = 4;
+  TaskRunStatusReason status_reason = 4;
   string id = 5;
   bool logs_expired = 6;
   bool logs_removed = 7;
@@ -215,20 +215,93 @@ message TaskRun {
   uint64 run_id = 10;
   string scheduler_id = 11;
   uint64 started = 12;
-  enum State {
+  enum TaskRunState {
     UNKNOWN_STATE = 0;
     PROCESSING = 1;
+    WAITING = 2;
     RUNNING = 3;
     COMPLETE = 4;
   }
-  State state = 13;
-  enum Status {
+  TaskRunState state = 13;
+  enum TaskRunStatus {
     UNKNOWN_STATUS = 0;
     SUCCESSFUL = 1;
     FAILED = 2;
     CANCELLED = 3;
     SKIPPED = 4;
   }
-  Status status = 14;
+  TaskRunStatus status = 14;
   Task task = 15;
+  repeated Variable variables = 16;
+}
+
+message Trigger {
+  string name = 1;
+  string image = 2;
+  string url = 3;
+  string scheduler_id = 4;
+  uint64 started = 5;
+  enum TriggerState {
+    UNKNOWN_STATE = 0;
+    PROCESSING = 1;
+    RUNNING = 2;
+    EXITED = 3;
+  }
+  TriggerState state = 6;
+  enum TriggerStatus {
+    UNKNOWN_STATUS = 0;
+    ENABLED = 1;
+    DISABLED = 2;
+  }
+  TriggerStatus status = 7;
+  string documentation = 8;
+}
+
+message TriggerRegistration {
+  string name = 1;
+  string image = 2;
+  string user = 3;
+  string pass = 4;
+  map<string, string> variables = 5;
+  uint64 created = 6;
+  enum TriggerStatus {
+    UNKNOWN_STATUS = 0;
+    ENABLED = 1;
+    DISABLED = 2;
+  }
+  TriggerStatus status = 7;
+}
+
+message CommonTask {
+  string name = 1;
+  string image = 2;
+  string documentation = 3;
+  enum Status {
+    UNKNOWN = 0;
+    ENABLED = 1;
+    DISABLED = 2;
+  }
+  Status status = 4;
+}
+
+message CommonTaskRegistration {
+  string name = 1;
+  string image = 2;
+  string user = 3;
+  string pass = 4;
+  map<string, string> variables = 5;
+  uint64 created = 6;
+  enum Status {
+    UNKNOWN = 0;
+    ENABLED = 1;
+    DISABLED = 2;
+  }
+  Status status = 7;
+}
+
+message Event {
+  uint64 id = 1;
+  string kind = 2;    // What type of event
+  string details = 3; // Json output of the event
+  uint64 emitted = 4;
 }

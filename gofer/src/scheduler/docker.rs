@@ -1,5 +1,4 @@
 use super::*;
-use crate::models::TaskRunState;
 use async_trait::async_trait;
 use futures::stream::TryStreamExt;
 use futures::Stream;
@@ -11,11 +10,12 @@ fn format_env_var(key: &str, value: &str) -> String {
     return format!("{}={}", key, value);
 }
 
-pub struct Engine {
+#[derive(Debug)]
+pub struct Docker {
     client: Arc<bollard::Docker>,
 }
 
-impl Engine {
+impl Docker {
     pub async fn new(prune: bool, prune_interval: u64) -> Result<Self, SchedulerError> {
         let client = bollard::Docker::connect_with_socket_defaults().map_err(|e| {
             SchedulerError::Connection(format!(
@@ -41,29 +41,29 @@ impl Engine {
             tokio::spawn(async move {
                 match prune_client.prune_containers::<String>(None).await {
                     Ok(response) => {
-                        debug!("pruned containers";
+                        debug!("Pruned containers";
                                "containers_deleted" => format!("{:?}", response.containers_deleted),
                                "space_reclaimed" => response.space_reclaimed);
                     }
                     Err(e) => {
-                        error!("could not successfully prune containers"; "error" => e.to_string())
+                        error!("could not successfully prune containers"; "error" => format!("{:?}", e))
                     }
                 };
 
-                tokio::time::sleep(std::time::Duration::new(prune_interval, 0)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(prune_interval)).await;
             });
 
-            debug!("started docker pruning"; "interval" => format!("{:?}",prune_interval));
+            debug!("Started docker pruning"; "interval" => format!("{:?}",prune_interval));
         }
 
-        debug!("local docker scheduler successfully connected"; "version" => format!("{:?}", version));
+        debug!("Local docker scheduler successfully connected"; "version" => format!("{}", version.version.unwrap_or_default()));
 
         Ok(Self { client })
     }
 }
 
 #[async_trait]
-impl Scheduler for Engine {
+impl Scheduler for Docker {
     async fn start_container(
         &self,
         req: StartContainerRequest,
@@ -81,7 +81,7 @@ impl Scheduler for Engine {
             self.client
                 .create_image(
                     Some(bollard::image::CreateImageOptions {
-                        from_image: req.image_name.clone(),
+                        from_image: req.image.clone(),
                         ..Default::default()
                     }),
                     None,
@@ -92,7 +92,7 @@ impl Scheduler for Engine {
                 .map_err(|e| SchedulerError::NoSuchImage(e.to_string()))?;
         } else {
             let mut filters = HashMap::new();
-            filters.insert("reference".to_string(), vec![req.image_name.clone()]);
+            filters.insert("reference".to_string(), vec![req.image.clone()]);
 
             let images = self
                 .client
@@ -108,7 +108,7 @@ impl Scheduler for Engine {
                 self.client
                     .create_image(
                         Some(bollard::image::CreateImageOptions {
-                            from_image: req.image_name.clone(),
+                            from_image: req.image.clone(),
                             ..Default::default()
                         }),
                         None,
@@ -127,7 +127,7 @@ impl Scheduler for Engine {
                 Some(bollard::container::RemoveContainerOptions {
                     v: true,
                     force: true,
-                    link: true,
+                    ..Default::default() //link: true,
                 }),
             )
             .await
@@ -136,7 +136,7 @@ impl Scheduler for Engine {
         }
 
         let mut container_config = bollard::container::Config {
-            image: Some(req.image_name.clone()),
+            image: Some(req.image.clone()),
             env: Some(
                 req.variables
                     .into_iter()
@@ -146,25 +146,31 @@ impl Scheduler for Engine {
             ..Default::default()
         };
 
-        if let Some(exec) = req.exec {
-            let script = base64::decode(exec.script).unwrap();
-            container_config.entrypoint = Some(vec![
-                exec.shell,
-                "-c".to_string(),
-                String::from_utf8_lossy(&script).to_string(),
-            ]);
+        if !req.entrypoint.is_empty() {
+            container_config.entrypoint = Some(req.entrypoint);
         }
 
+        if !req.command.is_empty() {
+            container_config.cmd = Some(req.command);
+        }
+
+        // In order to properly set up a container such that we can talk to it we need several things:
+        // 1) We need to expose the port that the container is listening on. We've hardcoded this in the
+        // sdk to be tcp/port 8080.
+        // 2) We then need to bind one of our local/host ports to the port of local machine. This enables
+        // us to talk to direct traffic to the port. We set this to 127.0.0.1 to keep it purely local
+        // and then we omit the port so that the docker engine assigns us a random open port.
+        // 3) Finally we create a binding in docker between the addresses in step 1 and 2.
         if req.enable_networking {
             let mut exposed_ports = HashMap::new();
-            exposed_ports.insert("tcp/8080".to_string(), HashMap::new());
+            exposed_ports.insert("8080/tcp".to_string(), HashMap::new());
             container_config.exposed_ports = Some(exposed_ports);
 
             let host_port_binding = bollard::models::PortBinding {
                 host_ip: Some("127.0.0.1".to_string()),
-                // a value of 0 conveys that the engine should automatically allocate a port from freely
-                // available ephemeral port range (32768-61000)
-                host_port: Some("0".to_string()),
+                // a value of None for host_port conveys that the engine should automatically allocate a port from
+                // freely available ephemeral port range (32768-61000)
+                host_port: None,
             };
             let mut port_bindings = HashMap::new();
             port_bindings.insert("8080/tcp".to_string(), Some(vec![host_port_binding]));
@@ -218,7 +224,7 @@ impl Scheduler for Engine {
             })?;
 
             response.url = Some(format!(
-                "{}:{}",
+                "https://{}:{}",
                 port.host_ip.as_ref().unwrap(),
                 port.host_port.as_ref().unwrap()
             ));
@@ -242,7 +248,7 @@ impl Scheduler for Engine {
     fn get_logs(
         &self,
         req: GetLogsRequest,
-    ) -> Pin<Box<dyn Stream<Item = Result<Log, SchedulerError>>>> {
+    ) -> Pin<Box<dyn Stream<Item = Result<Log, SchedulerError>> + Send>> {
         let logs_options = bollard::container::LogsOptions::<String> {
             follow: true,
             stdout: true,
@@ -275,71 +281,21 @@ impl Scheduler for Engine {
             | bollard::models::ContainerStateStatusEnum::RUNNING => {
                 return Ok(GetStateResponse {
                     exit_code: None,
-                    state: TaskRunState::Running,
+                    state: ContainerState::Running,
                 });
             }
             bollard::models::ContainerStateStatusEnum::EXITED => {
-                dbg!(&container_info.state);
                 return Ok(GetStateResponse {
                     exit_code: Some(container_info.state.unwrap().exit_code.unwrap() as u8),
-                    state: TaskRunState::Complete,
+                    state: ContainerState::Exited,
                 });
             }
             _ => {
                 return Ok(GetStateResponse {
                     exit_code: None,
-                    state: TaskRunState::Unknown,
+                    state: ContainerState::Unknown,
                 })
             }
         }
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use crate::scheduler::GetLogsRequest;
-//     use futures::stream::StreamExt;
-//     use std::time::Duration;
-
-//     use super::*;
-
-//     #[tokio::test]
-//     async fn hello() {
-//         let engine = Engine::new(true, 100).await.unwrap();
-//         engine
-//             .start_container(StartContainerRequest {
-//                 name: "container_test".to_string(),
-//                 image_name: "ghcr.io/clintjedwards/gofer-containers/debug/log:latest".to_string(),
-//                 variables: HashMap::new(),
-//                 registry_auth: None,
-//                 always_pull: true,
-//                 enable_networking: false,
-//                 exec: None,
-//             })
-//             .await
-//             .unwrap();
-
-//         // engine
-//         //     .stop_container(StopContainerRequest {
-//         //         name: "container_test".to_string(),
-//         //         timeout: 100,
-//         //     })
-//         //     .await
-//         //     .unwrap();
-
-//         // let status = engine
-//         //     .get_state(GetStateRequest {
-//         //         name: "container_test".to_string(),
-//         //     })
-//         //     .await
-//         //     .unwrap();
-
-//         let mut logs = engine.get_logs(GetLogsRequest {
-//             name: "container_test".to_string(),
-//         });
-
-//         while let Some(foo) = logs.next().await {
-//             dbg!(foo);
-//         }
-//     }
-// }

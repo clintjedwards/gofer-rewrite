@@ -1,9 +1,11 @@
 mod api;
 mod cli;
 mod conf;
+mod events;
 mod frontend;
-mod models;
+mod object_store;
 mod scheduler;
+mod secret_store;
 mod storage;
 
 #[tokio::main]

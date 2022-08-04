@@ -1,11 +1,17 @@
+mod event;
 mod namespace;
 mod pipeline;
+mod run;
 mod service;
 mod spinner;
+mod trigger;
+mod utils;
 
 pub use self::spinner::*;
+pub use self::utils::*;
 
 use crate::conf::{self, cli::Config};
+use chrono_humanize::{Accuracy, HumanTime, Tense};
 use clap::{Parser, Subcommand};
 use gofer_proto::gofer_client::GoferClient;
 use slog::o;
@@ -14,11 +20,11 @@ use sloggers::types::Severity;
 use sloggers::Build;
 use std::{
     error::Error,
+    fmt::Debug,
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
 };
 use tonic::transport::channel::Channel;
-use url::Url;
 
 #[derive(Debug, Parser)]
 #[clap(name = "gofer")]
@@ -55,18 +61,21 @@ impl CliHarness {
     }
 
     async fn connect(&self) -> Result<GoferClient<Channel>, Box<dyn Error>> {
-        let parsed_url = Url::parse(&self.config.server).unwrap();
-        let domain_name = parsed_url.host_str().unwrap();
+        let tls_config = get_tls_config(&self.config.server, self.config.tls_ca.clone())?;
 
-        let mut conn =
-            tonic::transport::Channel::from_shared(self.config.server.to_string()).unwrap();
+        let channel = Channel::from_shared(self.config.server.to_string())?
+            .tls_config(tls_config)?
+            .connect()
+            .await
+            .map_err(|e| {
+                if let Some(source_err) = e.source() {
+                    source_err.to_string()
+                } else {
+                    e.to_string()
+                }
+            })?;
 
-        if !&self.config.dev_mode {
-            conn =
-                conn.tls_config(tonic::transport::ClientTlsConfig::new().domain_name(domain_name))?;
-        }
-
-        Ok(GoferClient::new(conn.connect().await?))
+        Ok(GoferClient::new(channel))
     }
 }
 
@@ -80,6 +89,15 @@ enum Commands {
 
     /// Manages pipeline related commands.
     Pipeline(pipeline::PipelineSubcommands),
+
+    /// Managers run related commands.
+    Run(run::RunSubcommands),
+
+    /// Manages trigger related commands.
+    Trigger(trigger::TriggerSubcommands),
+
+    /// List and get information about Gofer events.
+    Event(event::EventSubcommands),
 }
 
 fn init_logging(severity: Severity) -> slog_scope::GlobalLoggerGuard {
@@ -103,12 +121,41 @@ fn epoch() -> u64 {
     u64::try_from(current_epoch).unwrap()
 }
 
-/// humanize_duration transforms a given time into a humanized duration string from the current time
+/// Transforms the given time into a humanized duration string from the current time.
+///  or if time is not valid returns None.
 /// (i.e. 'about an hour ago' )
-fn humanize_duration(time: i64) -> String {
-    let time_diff = time - epoch() as i64;
-    let time_diff_duration = chrono::Duration::milliseconds(time_diff);
-    chrono_humanize::HumanTime::from(time_diff_duration).to_string()
+fn humanize_relative_duration(time: u64) -> Option<String> {
+    if time == 0 {
+        return None;
+    }
+
+    let time_diff = epoch() - time;
+    let time_diff_duration = chrono::Duration::milliseconds(-(time_diff as i64));
+    Some(HumanTime::from(time_diff_duration).to_string())
+}
+
+/// Transforms the given two time intervals into a humanized duration string.
+/// Subtracts time two(end time) from time one(start time).
+fn humanize_absolute_duration(time_one: u64, time_two: u64) -> String {
+    let mut time_two = time_two;
+
+    // If time_two is just zero the thing we're trying to calculate
+    // the duration of probably isn't finished. So we'll sub in a current
+    // running time by entering current epoch.
+    if time_two == 0 {
+        time_two = epoch()
+    }
+
+    // If we'll get a negative number by subtracting the times then we should just
+    // return zero.
+    if time_two < time_one {
+        return "0s".to_string();
+    }
+
+    let time_diff = time_two - time_one;
+    let time_diff_duration = chrono::Duration::milliseconds(time_diff as i64);
+    chrono_humanize::HumanTime::from(time_diff_duration)
+        .to_text_en(Accuracy::Precise, Tense::Present)
 }
 
 /// init the CLI and appropriately run the correct command.
@@ -143,7 +190,7 @@ pub async fn init() {
                                 ['trace', 'debug', 'info', 'warning', 'error', 'critical']",
                                 );
                         let _guard = init_logging(severity);
-                        cli.service_start(parsed_config).await;
+                        cli.service_start(*parsed_config).await;
                     } else {
                         panic!("Incorrect configuration file received trying to start api")
                     }
@@ -188,6 +235,41 @@ pub async fn init() {
                 }
                 pipeline::PipelineCommands::Update { path } => cli.pipeline_update(&path).await,
                 pipeline::PipelineCommands::Delete { id } => cli.pipeline_delete(&id).await,
+            }
+        }
+        Commands::Run(run) => match run.command {
+            run::RunCommands::Get { pipeline_id, id } => cli.run_get(pipeline_id, id).await,
+            run::RunCommands::List { pipeline_id } => cli.run_list(pipeline_id).await,
+            _ => todo!(),
+        },
+        Commands::Trigger(trigger) => {
+            let trigger_cmds = trigger.command;
+
+            match trigger_cmds {
+                trigger::TriggerCommands::Install {
+                    name,
+                    image,
+                    user,
+                    pass,
+                    installer,
+                    variables,
+                } => {
+                    cli.trigger_install(&name, &image, user, pass, installer, variables)
+                        .await
+                }
+                trigger::TriggerCommands::List => cli.trigger_list().await,
+
+                _ => todo!(),
+            }
+        }
+        Commands::Event(event) => {
+            let event_cmds = event.command;
+
+            match event_cmds {
+                event::EventCommands::Get { id } => cli.event_get(id).await,
+                event::EventCommands::List { reverse, follow } => {
+                    cli.event_list(reverse, follow).await
+                }
             }
         }
     }

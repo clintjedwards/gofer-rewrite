@@ -1,6 +1,6 @@
 use crate::api;
 use crate::conf;
-use gofer_proto::{gofer_client::GoferClient, GetSystemInfoRequest};
+use gofer_proto::GetSystemInfoRequest;
 
 use clap::{Args, Subcommand};
 use std::process;
@@ -29,37 +29,21 @@ pub enum ServiceCommands {
 
 impl CliHarness {
     pub async fn service_start(&self, config: conf::api::Config) {
-        let api = api::Api::new(config).await;
-        api.start_service().await;
+        api::Api::start(config).await;
     }
 
     pub async fn service_info(&self) {
-        let channel = match tonic::transport::Channel::from_shared(self.config.server.to_string()) {
-            Ok(channel) => channel,
-            Err(e) => {
-                eprintln!("Could not open transport channel; {}", e);
-                process::exit(1);
-            }
-        };
+        let mut client = self.connect().await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {:?}", e);
+            process::exit(1);
+        });
 
-        let conn = match channel.connect().await {
-            Ok(conn) => conn,
-            Err(e) => {
-                eprintln!("Could not connect to server; {}", e);
-                process::exit(1);
-            }
-        };
-
-        let mut client = GoferClient::new(conn);
         let request = tonic::Request::new(GetSystemInfoRequest {});
-        let response = match client.get_system_info(request).await {
-            Ok(response) => response.into_inner(),
-            Err(e) => {
-                eprintln!("Could not get info; {}", e.message());
-                process::exit(1);
-            }
-        };
+        let response = client.get_system_info(request).await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {:?}", e.message());
+            process::exit(1);
+        });
 
-        println!("{:?}", response);
+        println!("{:?}", response.into_inner());
     }
 }

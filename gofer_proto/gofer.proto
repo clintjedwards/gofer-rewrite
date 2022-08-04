@@ -45,9 +45,6 @@ service Gofer {
   // creation.
   rpc ListPipelines(ListPipelinesRequest) returns (ListPipelinesResponse);
 
-  // RunPipeline executes a single run of this pipeline.
-  rpc RunPipeline(RunPipelineRequest) returns (RunPipelineResponse);
-
   // EnablePipeline allows a pipeline to execute runs by allowing it to receive
   // trigger events. See DisablePipeline to prevent a pipeline from executing
   // any more runs.
@@ -83,12 +80,12 @@ service Gofer {
   // GetRun returns the details of a single run.
   rpc GetRun(GetRunRequest) returns (GetRunResponse);
 
-  // BatchGetRuns returns multiple runs by ID.
-  rpc BatchGetRuns(BatchGetRunsRequest) returns (BatchGetRunsResponse);
-
   // ListRuns returns a list of all runs by Pipeline ID. Pagination can be
   // controlled via the offset and limit parameters of the request.
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+
+  // StartRun executes a single run of a particular pipeline.
+  rpc StartRun(StartRunRequest) returns (StartRunResponse);
 
   // RetryRun simply takes the vars and settings from a previous run and re-uses
   // those to launch a new run. Useful for if you want the exact settings from a
@@ -135,4 +132,105 @@ service Gofer {
   // useful for if logs mistakenly contain sensitive data.
   rpc DeleteTaskRunLogs(DeleteTaskRunLogsRequest)
       returns (DeleteTaskRunLogsResponse);
+
+  ////////////// Trigger RPCs //////////////
+  //
+  // A trigger is an automated way to execute pipeline runs. Pipelines
+  // "subscribe" to one or more triggers (usually with some individual
+  // configuration) and those triggers send "events" back to gofer about when to
+  // trigger a new pipeline run.
+
+  // GetTrigger returns details about a specific trigger.
+  rpc GetTrigger(GetTriggerRequest) returns (GetTriggerResponse);
+
+  // ListTriggers lists all triggers currently registered within gofer.
+  rpc ListTriggers(ListTriggersRequest) returns (ListTriggersResponse);
+
+  // GetTriggerInstalInstructions retrieves install instructions for a
+  // particular trigger.
+  rpc GetTriggerInstallInstructions(GetTriggerInstallInstructionsRequest)
+      returns (GetTriggerInstallInstructionsResponse);
+
+  // InstallTrigger attempts to install a new trigger.
+  rpc InstallTrigger(InstallTriggerRequest) returns (InstallTriggerResponse);
+
+  // UninstallTrigger attempts to uninstall a trigger.
+  rpc UninstallTrigger(UninstallTriggerRequest)
+      returns (UninstallTriggerResponse);
+
+  // EnableTrigger attempts to enable a new trigger.
+  rpc EnableTrigger(EnableTriggerRequest) returns (EnableTriggerResponse);
+
+  // DisableTrigger attempts to disable a new trigger.
+  rpc DisableTrigger(DisableTriggerRequest) returns (DisableTriggerResponse);
+
+  ////////////// Common Task RPCs //////////////
+  //
+  // A Common Task is a Gofer provided task that can be set up in advanced to
+  // make some action easier for a particular user. For example posting to
+  // Slack.
+
+  // GetCommonTask returns details about a specific commontask.
+  rpc GetCommonTask(GetCommonTaskRequest) returns (GetCommonTaskResponse);
+
+  // ListCommonTasks lists all common tasks currently registered within gofer.
+  rpc ListCommonTasks(ListCommonTasksRequest) returns (ListCommonTasksResponse);
+
+  // InstallCommonTask attempts to install a new common task.
+  rpc InstallCommonTask(InstallCommonTaskRequest)
+      returns (InstallCommonTaskResponse);
+
+  // UninstallCommonTask attempts to uninstall a common task.
+  rpc UninstallCommonTask(UninstallCommonTaskRequest)
+      returns (UninstallCommonTaskResponse);
+
+  // EnableCommonTask attempts to enable a new common task.
+  rpc EnableCommonTask(EnableCommonTaskRequest)
+      returns (EnableCommonTaskResponse);
+
+  // DisableCommonTask attempts to disable a new common task.
+  rpc DisableCommonTask(DisableCommonTaskRequest)
+      returns (DisableCommonTaskResponse);
+
+  ////////////// Event RPCs //////////////
+  //
+  // Gofer emits events for actions that happen within it's purview. You can use
+  // the event api to get a list of all events or request specific events.
+
+  // GetEvent returns the details of a single event.
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse);
+
+  // ListEvents returns a streaming list of all events, ordered by
+  // oldest to newest.
+  rpc ListEvents(ListEventsRequest) returns (stream ListEventsResponse);
+}
+
+service TriggerService {
+  // Watch blocks until the trigger has a pipeline that should be run, then it
+  // returns.
+  rpc Watch(TriggerWatchRequest) returns (TriggerWatchResponse);
+
+  // Info returns information on the specific plugin
+  rpc Info(TriggerInfoRequest) returns (TriggerInfoResponse);
+
+  // Subscribe allows a trigger to keep track of all pipelines currently
+  // dependant on that trigger so that we can trigger them at appropriate times.
+  rpc Subscribe(TriggerSubscribeRequest) returns (TriggerSubscribeResponse);
+
+  // Unsubscribe allows pipelines to remove their trigger subscriptions. This is
+  // useful if the pipeline no longer needs to be notified about a specific
+  // trigger automation.
+  rpc Unsubscribe(TriggerUnsubscribeRequest)
+      returns (TriggerUnsubscribeResponse);
+
+  // Shutdown tells the trigger to cleanup and gracefully shutdown. If a trigger
+  // does not shutdown in a time defined by the gofer API the trigger will
+  // instead be Force shutdown(SIGKILL). This is to say that all triggers should
+  // lean toward quick cleanups and shutdowns.
+  rpc Shutdown(TriggerShutdownRequest) returns (TriggerShutdownResponse);
+
+  // ExternalEvent are json blobs of gofer's /events endpoint. Normally
+  // webhooks.
+  rpc ExternalEvent(TriggerExternalEventRequest)
+      returns (TriggerExternalEventResponse);
 }

@@ -21,7 +21,6 @@ CREATE TABLE IF NOT EXISTS pipelines (
     created     INTEGER NOT NULL,
     modified    INTEGER NOT NULL,
     state       TEXT    NOT NULL,
-    store_keys  TEXT    NOT NULL,
     FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
     PRIMARY KEY (namespace, id)
 ) STRICT;
@@ -40,7 +39,7 @@ CREATE TABLE IF NOT EXISTS pipeline_trigger_settings (
     PRIMARY KEY (namespace, pipeline, label)
 ) STRICT;
 
-CREATE TABLE IF NOT EXISTS pipeline_notifier_settings (
+CREATE TABLE IF NOT EXISTS pipeline_common_task_settings (
     namespace TEXT NOT NULL,
     pipeline  TEXT NOT NULL,
     kind      TEXT NOT NULL,
@@ -61,7 +60,6 @@ CREATE TABLE IF NOT EXISTS runs (
     state        TEXT    NOT NULL,
     status       TEXT    NOT NULL,
     failure_info TEXT,
-    task_runs    TEXT    NOT NULL,
     trigger      TEXT    NOT NULL,
     variables    TEXT    NOT NULL,
     store_info   TEXT,
@@ -81,21 +79,41 @@ CREATE TABLE IF NOT EXISTS tasks (
     registry_auth TEXT,
     depends_on    TEXT NOT NULL,
     variables     TEXT NOT NULL,
-    exec          TEXT,
+    entrypoint    TEXT,
+    command       TEXT,
     FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
     FOREIGN KEY (namespace, pipeline) REFERENCES pipelines(namespace, id) ON DELETE CASCADE,
     PRIMARY KEY (namespace, pipeline, id)
 ) STRICT;
 
-CREATE TABLE IF NOT EXISTS triggers (
-    id TEXT NOT NULL
+
+CREATE TABLE IF NOT EXISTS trigger_registrations (
+    name      TEXT    NOT NULL,
+    image     TEXT    NOT NULL,
+    user      TEXT,
+    pass      TEXT,
+    variables TEXT    NOT NULL,
+    created   INTEGER NOT NULL,
+    status    TEXT    NOT NULL,
+    PRIMARY KEY (name)
 ) STRICT;
 
-CREATE TABLE IF NOT EXISTS notifiers (
-    id TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS common_task_registrations (
+    name      TEXT    NOT NULL,
+    image     TEXT    NOT NULL,
+    user      TEXT,
+    pass      TEXT,
+    variables TEXT    NOT NULL,
+    created   INTEGER NOT NULL,
+    status    TEXT    NOT NULL,
+    PRIMARY KEY (name)
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS object_store_run_keys(
+    id TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS object_store_pipeline_keys(
     id TEXT NOT NULL
 ) STRICT;
 
@@ -115,7 +133,14 @@ CREATE TABLE IF NOT EXISTS task_runs (
     state         TEXT    NOT NULL,
     status        TEXT    NOT NULL,
     scheduler_id  TEXT,
+    variables     TEXT NOT NULL,
     FOREIGN KEY (namespace) REFERENCES namespaces(id) ON DELETE CASCADE,
     FOREIGN KEY (namespace, pipeline) REFERENCES pipelines(namespace, id) ON DELETE CASCADE,
     PRIMARY KEY (namespace, pipeline, run, id)
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS events (
+    id       INTEGER PRIMARY KEY,
+    kind     TEXT NOT NULL,
+    emitted  INTEGER NOT NULL
 ) STRICT;

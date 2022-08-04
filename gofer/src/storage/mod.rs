@@ -1,12 +1,15 @@
-mod namespaces;
-mod pipelines;
-mod runs;
-mod task_runs;
+pub mod common_task_registrations;
+pub mod events;
+pub mod namespaces;
+pub mod pipelines;
+pub mod runs;
+pub mod task_runs;
+pub mod trigger_registrations;
 
 #[cfg(test)]
 mod tests;
 
-use sqlx::{migrate, Pool, Sqlite, SqlitePool};
+use sqlx::{migrate, pool::PoolConnection, Pool, Sqlite, SqlitePool};
 use std::{error::Error, fmt, fs::File, io, path::Path};
 
 /// The maximum amount of rows that can be returned by any single query.
@@ -14,6 +17,9 @@ const MAX_ROW_LIMIT: u64 = 200;
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum StorageError {
+    #[error("could not establish connection to database")]
+    Connection(String),
+
     #[error("requested entity not found")]
     NotFound,
 
@@ -26,9 +32,6 @@ pub enum StorageError {
         column: String,
         err: String,
     },
-
-    #[error("entity was not in correct state for db operation")]
-    FailedPrecondition,
 
     #[error("unexpected storage error occurred; {0}")]
     Unknown(String),
@@ -86,5 +89,12 @@ impl Db {
         Ok(Db {
             pool: connection_pool,
         })
+    }
+
+    pub async fn conn(&self) -> Result<PoolConnection<Sqlite>, StorageError> {
+        self.pool
+            .acquire()
+            .await
+            .map_err(|e| StorageError::Connection(format!("{:?}", e)))
     }
 }

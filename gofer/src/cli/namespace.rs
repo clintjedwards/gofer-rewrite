@@ -1,5 +1,5 @@
 use super::CliHarness;
-use crate::cli::humanize_duration;
+use crate::cli::humanize_relative_duration;
 use clap::{Args, Subcommand};
 use colored::Colorize;
 use comfy_table::{presets::ASCII_MARKDOWN, Cell, CellAlignment, Color, ContentArrangement};
@@ -23,7 +23,7 @@ pub enum NamespaceCommands {
     /// Create a new namespace.
     Create {
         /// Identifier for namespace; Must be alphanumeric, lowercase,
-        /// with only hyphens/dashes as alternate characters.
+        /// with only underscores as alternate characters.
         id: String,
         /// Humanized name for namespace.
         #[clap(short, long)]
@@ -54,25 +54,23 @@ pub enum NamespaceCommands {
 
 impl CliHarness {
     pub async fn namespace_list(&self) {
-        let mut client = match self.connect().await {
-            Ok(client) => client,
-            Err(e) => {
-                eprintln!("Command failed; {}", e.source().unwrap());
-                process::exit(1);
-            }
-        };
+        let mut client = self.connect().await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {}", e);
+            process::exit(1);
+        });
 
         let request = tonic::Request::new(ListNamespacesRequest {
             offset: 0,
             limit: 0,
         });
-        let response = match client.list_namespaces(request).await {
-            Ok(response) => response.into_inner(),
-            Err(e) => {
+        let response = client
+            .list_namespaces(request)
+            .await
+            .unwrap_or_else(|e| {
                 eprintln!("Command failed; {}", e.message());
                 process::exit(1);
-            }
-        };
+            })
+            .into_inner();
 
         let mut table = comfy_table::Table::new();
         table
@@ -98,7 +96,10 @@ impl CliHarness {
                 Cell::new(namespace.id).fg(Color::Green),
                 Cell::new(namespace.name),
                 Cell::new(namespace.description),
-                Cell::new(humanize_duration(namespace.created as i64)),
+                Cell::new(
+                    humanize_relative_duration(namespace.created)
+                        .unwrap_or_else(|| "Unknown".to_string()),
+                ),
             ]);
         }
 
@@ -111,26 +112,24 @@ impl CliHarness {
         name: Option<String>,
         description: Option<String>,
     ) {
-        let mut client = match self.connect().await {
-            Ok(client) => client,
-            Err(e) => {
-                eprintln!("Command failed; {}", e);
-                process::exit(1);
-            }
-        };
+        let mut client = self.connect().await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {}", e);
+            process::exit(1);
+        });
 
         let request = tonic::Request::new(CreateNamespaceRequest {
             id: id.to_string(),
             name: name.unwrap_or_default(),
             description: description.unwrap_or_default(),
         });
-        let response = match client.create_namespace(request).await {
-            Ok(response) => response.into_inner(),
-            Err(e) => {
-                eprintln!("Command failed; {}", e.message());
+        let response = client
+            .create_namespace(request)
+            .await
+            .unwrap_or_else(|e| {
+                eprintln!("Command failed; {}", e);
                 process::exit(1);
-            }
-        };
+            })
+            .into_inner();
 
         let namespace = response.namespace.unwrap();
 
@@ -138,22 +137,20 @@ impl CliHarness {
     }
 
     pub async fn namespace_get(&self, id: &str) {
-        let mut client = match self.connect().await {
-            Ok(client) => client,
-            Err(e) => {
-                eprintln!("Command failed; {}", e);
-                process::exit(1);
-            }
-        };
+        let mut client = self.connect().await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {}", e);
+            process::exit(1);
+        });
 
         let request = tonic::Request::new(GetNamespaceRequest { id: id.to_string() });
-        let response = match client.get_namespace(request).await {
-            Ok(response) => response.into_inner(),
-            Err(e) => {
-                eprintln!("Command failed; {}", e.message());
+        let response = client
+            .get_namespace(request)
+            .await
+            .unwrap_or_else(|e| {
+                eprintln!("Command failed; {}", e);
                 process::exit(1);
-            }
-        };
+            })
+            .into_inner();
 
         let namespace = response.namespace.unwrap();
 
@@ -163,7 +160,7 @@ impl CliHarness {
   {}",
             namespace.id.green(),
             namespace.name,
-            humanize_duration(namespace.created as i64),
+            humanize_relative_duration(namespace.created).unwrap_or_else(|| "Unknown".to_string()),
             namespace.description
         );
     }
@@ -173,22 +170,20 @@ impl CliHarness {
         name: Option<String>,
         description: Option<String>,
     ) {
-        let mut client = match self.connect().await {
-            Ok(client) => client,
-            Err(e) => {
-                eprintln!("Command failed; {}", e);
-                process::exit(1);
-            }
-        };
+        let mut client = self.connect().await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {}", e);
+            process::exit(1);
+        });
 
         let request = tonic::Request::new(GetNamespaceRequest { id: id.to_string() });
-        let response = match client.get_namespace(request).await {
-            Ok(response) => response.into_inner(),
-            Err(e) => {
-                eprintln!("Command failed; {}", e.message());
+        let response = client
+            .get_namespace(request)
+            .await
+            .unwrap_or_else(|e| {
+                eprintln!("Command failed; {}", e);
                 process::exit(1);
-            }
-        };
+            })
+            .into_inner();
 
         let current_namespace = response.namespace.unwrap();
 
@@ -197,33 +192,24 @@ impl CliHarness {
             name: name.unwrap_or(current_namespace.name),
             description: description.unwrap_or(current_namespace.description),
         });
-        match client.update_namespace(request).await {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Command failed; {}", e.message());
-                process::exit(1);
-            }
-        };
+        client.update_namespace(request).await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {}", e);
+            process::exit(1);
+        });
 
         println!("Updated namespace '{}'", id);
     }
     pub async fn namespace_delete(&self, id: &str) {
-        let mut client = match self.connect().await {
-            Ok(client) => client,
-            Err(e) => {
-                eprintln!("Command failed; {}", e);
-                process::exit(1);
-            }
-        };
+        let mut client = self.connect().await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {}", e);
+            process::exit(1);
+        });
 
         let request = tonic::Request::new(DeleteNamespaceRequest { id: id.to_string() });
-        match client.delete_namespace(request).await {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Command failed; {}", e.message());
-                process::exit(1);
-            }
-        };
+        client.delete_namespace(request).await.unwrap_or_else(|e| {
+            eprintln!("Command failed; {}", e);
+            process::exit(1);
+        });
 
         println!("Deleted namespace '{}'", id);
     }
